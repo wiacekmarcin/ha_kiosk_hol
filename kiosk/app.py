@@ -14,6 +14,7 @@ from kivy.uix.screenmanager import FadeTransition, ScreenManager
 from datetime import date, timedelta
 
 from kiosk import config, device, icons, network
+from kiosk.chime import HourChime
 from kiosk.kalbi import KalbiCache
 from kiosk.data import mock
 from kiosk.ha.provider import HAProvider
@@ -113,6 +114,9 @@ class KioskApp(App):
         # wygaszanie ekranu po bezczynności, budzenie dotykiem / ruchem (przednia kamera);
         # dopiero wygaszenie zamyka okna, a wybudzenie pokazuje ekran startowy
         self.screensaver = ScreenSaver(on_wake=lambda: self.go_to("start"))
+        # pełne godziny: gong i "Jest godzina ..." (pn-pt 7-22, sb-nd 9-22), także przy
+        # wygaszonym ekranie; przełącznik w Ustawieniach
+        self.chime = HourChime(bool(load_local().get("hour_chime", True)))
         self.apply_screen_settings()
 
         self.check_network()

@@ -267,6 +267,34 @@
                     pos_hint: {"center_y": 0.5}
                     on_release: root.toggle_motion()
             Divider:
+            # pełne godziny: gong i "Jest godzina ..." (pn-pt 7-22, sb-nd 9-22)
+            BoxLayout:
+                size_hint_y: None
+                height: 60
+                spacing: 14
+                Icon:
+                    icon: "bell-ring"
+                    color: config.COLOR_ACCENT
+                    pos_hint: {"center_y": 0.5}
+                Label:
+                    text: "Ogłaszaj pełne godziny z gongiem (pn-pt 7-22, sb-nd 9-22)"
+                    font_size: "19sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "middle"
+                SettingsButton:
+                    icon: "volume-high"
+                    text: "Posłuchaj"
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.test_chime()
+                IconButton:
+                    icon: "toggle-switch" if root.hour_chime else "toggle-switch-off"
+                    font_size: "52sp"
+                    size: 76, 56
+                    color: config.COLOR_ACCENT if root.hour_chime else config.COLOR_TEXT_DIM
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.toggle_chime()
+            Divider:
             # jasność i głośność tabletu - te same wartości co pomocnicy w HA;
             # przycisk "A" = automatyczna jasność, ręczne przesunięcie suwaka ją wyłącza
             # (input_number.tablet_kiosk_jasnosc / _glosnosc), zmiana działa od razu

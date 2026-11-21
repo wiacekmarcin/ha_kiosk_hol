@@ -60,6 +60,7 @@ class SettingsScreen(Screen):
     screen_minutes = NumericProperty(5)
     minutes_text = StringProperty("5 min")
     motion_wake = BooleanProperty(True)
+    hour_chime = BooleanProperty(True)    # ogłaszanie pełnych godzin
     adb_on = BooleanProperty(False)       # ADB przez sieć nasłuchuje (port 5555)
     adb_text = StringProperty("")
 
@@ -69,6 +70,7 @@ class SettingsScreen(Screen):
         cfg = App.get_running_app().screen_settings()
         self.screen_minutes = cfg["screen_off_minutes"]
         self.motion_wake = cfg["motion_wake"]
+        self.hour_chime = App.get_running_app().chime.enabled
         self._update_info()
         self._update_adb()
 
@@ -89,6 +91,18 @@ class SettingsScreen(Screen):
     def toggle_motion(self):
         self.motion_wake = not self.motion_wake
         self._save_screen()
+
+    # --- ogłaszanie pełnych godzin (gong i komunikat) ---------------------------------
+    def toggle_chime(self):
+        self.hour_chime = not self.hour_chime
+        App.get_running_app().chime.enabled = self.hour_chime
+        try:
+            save_local(hour_chime=self.hour_chime)
+        except OSError as e:
+            self._show(f"Nie udało się zapisać: {e}", False)
+
+    def test_chime(self):
+        App.get_running_app().chime.play()
 
     def _save_screen(self):
         try:

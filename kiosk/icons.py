@@ -138,6 +138,7 @@ _CODES = {
     "email": 0xF01EE,
     "briefcase": 0xF00D6,
     "volume-high": 0xF057E,
+    "bell-ring": 0xF009E,
 }
 
 

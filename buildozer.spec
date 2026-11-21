@@ -2,10 +2,11 @@
 title = HA Kiosk
 package.name = hakiosk
 package.domain = pl.mieszkanie
-version = 0.17
+version = 0.18
 
 source.dir = .
-source.include_exts = py,png,kv,ttf,json
+# ogg: nagrania pełnych godzin (assets/sounds)
+source.include_exts = py,png,kv,ttf,json,ogg
 # settings.json (z tokenem HA) jest celowo WBUDOWANY w APK - nie udostępniaj pliku APK.
 # Nowszy settings.json można wgrać bez przebudowy (ma pierwszeństwo przed wbudowanym):
 #   adb push settings.json /sdcard/Android/data/pl.mieszkanie.hakiosk/files/settings.json
