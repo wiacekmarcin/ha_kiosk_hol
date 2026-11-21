@@ -58,6 +58,7 @@ class KioskApp(App):
     tablet_battery_text = StringProperty("")
     tablet_battery_color = ListProperty(list(config.COLOR_TEXT_DIM))
     tablet_charging = BooleanProperty(False)            # tablet podłączony do ładowania
+    tablet_charge_power = StringProperty("")             # moc gniazdka ładowarki, np. "7 W"
     app_version = StringProperty("")                    # versionName z APK (nad baterią)
     _last_battery = None                                # ostatni stan baterii wysłany do HA
     # jasność i głośność tabletu 0-100 (ekran Ustawienia, encje input_number w HA)
@@ -341,6 +342,10 @@ class KioskApp(App):
 
     def _on_tablet_remote(self, kind: str, value):
         """Pomocnik zmieniony w HA (dashboard, automatyzacja) -> tablet."""
+        if kind == "charger_power":         # odczyt co cykl - bez logowania
+            self.tablet_charge_power = (f"{round(value)} W" if value is not None and value >= 0.5
+                                        else "")
+            return
         Logger.info(f"HA: tablet {kind} = {value}")
         if kind == "auto_brightness":
             self.set_auto_brightness(value, sync=False)

@@ -270,7 +270,7 @@
                 BoxLayout:
                     orientation: "vertical"
                     size_hint_x: None
-                    width: 70
+                    width: 110
                     padding: [0, 2, 0, 12]
                     spacing: 2
                     Label:
@@ -291,13 +291,28 @@
                                 icon: app.tablet_battery_icon
                                 font_size: "34sp"
                                 color: app.tablet_battery_color
+                        # podczas ładowania: błyskawica i moc gniazdka ładowarki (z HA)
                         AnchorLayout:
+                            opacity: 1 if app.tablet_charging else 0
                             anchor_x: "left"
-                            Icon:
-                                icon: "flash"
-                                font_size: "24sp"
-                                color: config.COLOR_SUN_ICON
-                                opacity: 1 if app.tablet_charging else 0
+                            BoxLayout:
+                                size_hint: None, None
+                                size: 64, 30
+                                spacing: 2
+                                AnchorLayout:
+                                    size_hint_x: None
+                                    width: 22
+                                    Icon:
+                                        icon: "flash"
+                                        font_size: "24sp"
+                                        color: config.COLOR_SUN_ICON
+                                Label:
+                                    text: app.tablet_charge_power
+                                    font_size: "15sp"
+                                    color: config.COLOR_SUN_ICON
+                                    text_size: self.size
+                                    halign: "left"
+                                    valign: "middle"
                     BoxLayout:
                         size_hint_y: None
                         height: 22

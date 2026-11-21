@@ -28,6 +28,8 @@ DEFAULTS = {
     "illuminance": "sensor.tablet_kiosk_oswietlenie",
     "auto_brightness": "input_boolean.tablet_kiosk_jasnosc_auto",
     "brightness": "input_number.tablet_kiosk_jasnosc",
+    # moc gniazdka, z którego ładuje się tablet (Ładowarka do telefonu 2) - tylko odczyt
+    "charger_power": "sensor.charger_2_power",
     "volume": "input_number.tablet_kiosk_glosnosc",
 }
 
@@ -141,3 +143,11 @@ class TabletSync:
             if self._seen.get(kind) != value:
                 self._seen[kind] = value
                 Clock.schedule_once(lambda _dt, k=kind, v=value: self.on_remote(k, v))
+        # moc gniazdka z ładowarką tabletu (W) - przy zegarze obok błyskawicy
+        eid = self.ids.get("charger_power")
+        if eid and not self._stop.is_set():
+            try:
+                power = float(client.state(eid)["state"])
+            except (HAError, KeyError, ValueError):
+                power = None
+            Clock.schedule_once(lambda _dt, p=power: self.on_remote("charger_power", p))
