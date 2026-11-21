@@ -44,11 +44,23 @@ class MonthDialog(KioskDialog):
         self._events = []
         Clock.schedule_once(lambda _dt: self._load(), 0.05)
 
+    def _debounced(self) -> bool:
+        """Zabezpieczenie: drugie zdarzenie tego samego dotknięcia w ciągu 0,3 s ignorujemy."""
+        now = Clock.get_time()
+        if now - getattr(self, "_last_shift", 0.0) < 0.3:
+            return True
+        self._last_shift = now
+        return False
+
     def prev_month(self):
+        if self._debounced():
+            return
         self.year, self.month = calendars.shift_month(self.year, self.month, -1)
         self._load()
 
     def next_month(self):
+        if self._debounced():
+            return
         self.year, self.month = calendars.shift_month(self.year, self.month, +1)
         self._load()
 

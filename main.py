@@ -42,7 +42,16 @@ def configure_kivy(fullscreen: bool):
     Config.set("graphics", "borderless", "1" if fullscreen else "0")
     Config.set("graphics", "show_cursor", "0" if fullscreen else "1")
     Config.set("kivy", "exit_on_escape", "0" if fullscreen else "1")
-    Config.set("input", "mouse", "mouse,disable_multitouch")
+    if IS_ANDROID:
+        # Na Androidzie SDL zamienia każdy dotyk także na zdarzenie myszy - dostawca "mouse"
+        # dawał więc każde dotknięcie dwa razy (np. strzałka w kalendarzu przeskakiwała
+        # o 2 miesiące). Dotyk obsługuje okno SDL, dostawcę myszy usuwamy.
+        if Config.has_section("input"):
+            for key in list(Config.options("input")):
+                if Config.get("input", key).startswith("mouse"):
+                    Config.remove_option("input", key)
+    else:
+        Config.set("input", "mouse", "mouse,disable_multitouch")
 
 
 def main():

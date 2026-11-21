@@ -127,6 +127,8 @@ class HAProvider:
             "wind_speed": to_float(attrs.get("wind_speed")),
             "wind_speed_unit": attrs.get("wind_speed_unit", "m/s"),
             "wind_bearing": to_float(attrs.get("wind_bearing")),
+            # tylko niektóre integracje (np. OpenWeatherMap) ją podają; met.no nie
+            "apparent_temperature": to_float(attrs.get("apparent_temperature")),
             "precipitation_unit": attrs.get("precipitation_unit", "mm"),
             "attribution": attrs.get("attribution", ""),
             "last_changed": parse_dt(st["last_changed"]) if st.get("last_changed") else None,

@@ -352,34 +352,28 @@
                         night: root.weather_night
                         size: 100, 100
                         pos_hint: {"center_y": 0.5}
-                    BoxLayout:
-                        orientation: "vertical"
-                        padding: [0, 10]
-                        Label:
-                            text: root.weather_text
-                            font_size: "36sp"
-                            shorten: True
-                            shorten_from: "right"
-                            max_lines: 1
-                            text_size: self.size
-                            halign: "left"
-                            valign: "bottom"
-                        Label:
-                            text: root.weather_name
-                            font_size: "19sp"
-                            color: config.COLOR_TEXT_DIM
-                            text_size: self.size
-                            halign: "left"
-                            valign: "top"
+                    # opis warunków: długi (np. "Częściowe zachmurzenie") w 2 wierszach
+                    Label:
+                        text: root.weather_text
+                        font_size: "30sp" if "\n" in root.weather_text else "36sp"
+                        line_height: 0.95
+                        max_lines: 2
+                        text_size: self.size
+                        halign: "left"
+                        valign: "middle"
                     BoxLayout:
                         orientation: "vertical"
                         size_hint_x: None
-                        width: 165
+                        # szerokość według tekstu temperatury - reszta miejsca dla opisu warunków
+                        width: max(temp_label.texture_size[0], 150)
                         padding: [0, 10]
+                        # temperatura + odczuwalna (niebieska: zimniej, czerwona: cieplej)
                         Label:
-                            text: root.weather_temp
+                            id: temp_label
+                            markup: True
+                            text: root.weather_temp + ("  [size=28sp]" + root.weather_feels + "[/size]" if root.weather_feels else "")
                             font_size: "38sp"
-                            text_size: self.size
+                            text_size: None, self.height
                             halign: "right"
                             valign: "bottom"
                         Label:

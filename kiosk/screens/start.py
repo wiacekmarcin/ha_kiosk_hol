@@ -1,4 +1,5 @@
 """Ekran startowy: zegar, pogoda, czujniki, wschód/zachód, kalendarz."""
+import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 
@@ -18,6 +19,34 @@ from kiosk.widgets.calendar_dialogs import EventsDialog, MonthDialog
 
 DIM = "#949ba8"
 RED = "#f5544d"
+BLUE = "#4db3fa"
+
+
+def two_lines(text: str, limit: int = 12) -> str:
+    """Długi opis (np. "Częściowe zachmurzenie") dzieli na 2 wiersze przy spacji najbliżej środka."""
+    if len(text) <= limit or " " not in text:
+        return text
+    middle = len(text) / 2
+    spaces = [i for i, ch in enumerate(text) if ch == " "]
+    cut = min(spaces, key=lambda i: abs(i - middle))
+    return text[:cut] + "\n" + text[cut + 1:]
+
+
+def apparent_temperature(temp, humidity, wind, wind_unit: str = "m/s"):
+    """Temperatura odczuwalna (°C) wg Steadmana (Australian Bureau of Meteorology):
+    AT = T + 0,33*e - 0,70*v - 4,00, gdzie e to ciśnienie pary wodnej (hPa), v to wiatr w m/s.
+    Brak danych -> None."""
+    if temp is None or humidity is None or wind is None:
+        return None
+    unit = (wind_unit or "m/s").lower()
+    if unit in ("km/h", "kmh"):
+        wind = wind / 3.6
+    elif unit == "mph":
+        wind = wind * 0.44704
+    elif unit in ("kn", "kt", "knots"):
+        wind = wind * 0.514444
+    vapour = humidity / 100 * 6.105 * math.exp(17.27 * temp / (237.7 + temp))
+    return temp + 0.33 * vapour - 0.70 * wind - 4.00
 
 
 def daily_precipitation(forecast: list, hourly: list, now: datetime = None) -> dict:
@@ -63,6 +92,7 @@ class StartScreen(Screen):
     weather = DictProperty({})
     weather_text = StringProperty("")
     weather_temp = StringProperty("")
+    weather_feels = StringProperty("")      # temperatura odczuwalna (markup z kolorem)
     weather_range = StringProperty("")
     weather_name = StringProperty("")
     weather_condition = StringProperty("")
@@ -125,10 +155,21 @@ class StartScreen(Screen):
             self.events = data["events"]
 
     def on_weather(self, _inst, w):
-        self.weather_text = pl.WEATHER.get(w.get("condition"), w.get("condition", ""))
+        self.weather_text = two_lines(pl.WEATHER.get(w.get("condition"), w.get("condition", "")))
         self.weather_condition = w.get("condition", "")
         self.weather_name = w.get("name", "")
-        self.weather_temp = f"{pl.num(w.get('temperature'))} °C"
+        temp = w.get("temperature")
+        feels = w.get("apparent_temperature")
+        if feels is None:
+            feels = apparent_temperature(temp, w.get("humidity"), w.get("wind_speed"),
+                                         w.get("wind_speed_unit", "m/s"))
+        self.weather_temp = f"{pl.num(temp)} °C"
+        self.weather_feels = ""
+        if feels is not None and temp is not None:
+            diff = feels - temp                 # różnica poniżej 1 °C - kolor neutralny
+            color = BLUE if diff <= -1 else RED if diff >= 1 else DIM
+            feels = round(feels)
+            self.weather_feels = f"[color={color}]{pl.num(feels)}°[/color]"
         fc = w.get("forecast") or []
         if fc:
             self.weather_range = f"{pl.num(fc[0]['high'])} °C / {pl.num(fc[0]['low'])} °C"
