@@ -409,22 +409,11 @@
                     pos: self.pos
                     size: self.size
                     radius: [config.CARD_RADIUS]
-            # pasek u góry kartki (jak w zrywanym kalendarzu)
-            Widget:
-                size_hint_y: None
-                height: 14
-                canvas:
-                    Color:
-                        rgba: config.COLOR_ERROR if root.kartka_red else config.COLOR_ACCENT
-                    RoundedRectangle:
-                        pos: self.pos
-                        size: self.size
-                        radius: [config.CARD_RADIUS, config.CARD_RADIUS, 0, 0]
             TouchBox:
                 orientation: "vertical"
                 size_hint_y: None
-                height: 290
-                padding: [16, 10, 16, 6]
+                height: 304
+                padding: [16, 24, 16, 6]
                 on_release: root.open_month()
                 Label:
                     text: root.kartka_weekday

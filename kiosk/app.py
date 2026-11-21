@@ -41,6 +41,8 @@ TABLET_BATTERY_SECONDS = 60     # ikona baterii tabletu obok zegara i encja w HA
 AUTO_BRIGHTNESS_SECONDS = 2     # automatyczna jasność: odczyt czujnika światła
 AUTO_BRIGHTNESS_STEP = 5        # maks. zmiana jasności na krok (płynne przejście)
 AUTO_BRIGHTNESS_HA_DELTA = 5    # zmiana (%), od której automatyczna jasność trafia do HA
+AUTO_BRIGHTNESS_SMOOTH = 0.3     # wygładzanie odczytu światła (średnia wykładnicza, co 2 s)
+AUTO_BRIGHTNESS_DEADBAND = 4    # różnica (%) od celu, poniżej której jasność się nie zmienia
 
 
 class KioskApp(App):
@@ -124,7 +126,9 @@ class KioskApp(App):
         self.tablet_sync = None
         self._auto_sent = None
         if device.light_start():
-            self.tablet_auto_brightness = bool(local.get("auto_brightness", False))
+            # domyślnie włączona; wyłączenie (przycisk w Ustawieniach, ruch suwakiem
+            # albo pomocnik w HA) zapisuje się w local.json
+            self.tablet_auto_brightness = bool(local.get("auto_brightness", True))
             Clock.schedule_interval(lambda _dt: self._auto_brightness_tick(),
                                     AUTO_BRIGHTNESS_SECONDS)
         self.check_tablet_battery()
@@ -371,11 +375,21 @@ class KioskApp(App):
             self.tablet_sync.set_light(lux)
         if not self.tablet_auto_brightness:
             return
+        # wygładzanie: cień ręki czy przejście obok tabletu nie migocze jasnością
+        avg = getattr(self, "_lux_avg", None)
+        self._lux_avg = lux if avg is None else avg + (lux - avg) * AUTO_BRIGHTNESS_SMOOTH
         current = int(self.tablet_brightness)
-        target = device.auto_brightness_for(lux)
-        step = max(-AUTO_BRIGHTNESS_STEP, min(AUTO_BRIGHTNESS_STEP, target - current))
-        if step:
-            self.set_tablet("brightness", current + step, sync=False, auto=True)
+        target = device.auto_brightness_for(self._lux_avg)
+        # strefa martwa: drobne wahania czujnika nie ruszają jasności; zmiana, która się
+        # zaczęła, dochodzi płynnie do celu
+        if abs(target - current) >= AUTO_BRIGHTNESS_DEADBAND:
+            self._auto_moving = True
+        if getattr(self, "_auto_moving", False):
+            step = max(-AUTO_BRIGHTNESS_STEP, min(AUTO_BRIGHTNESS_STEP, target - current))
+            if step:
+                self.set_tablet("brightness", current + step, sync=False, auto=True)
+            else:
+                self._auto_moving = False
         value = int(self.tablet_brightness)
         if self.tablet_sync and (self._auto_sent is None
                                  or abs(value - self._auto_sent) >= AUTO_BRIGHTNESS_HA_DELTA
