@@ -263,26 +263,49 @@
                 height: 132
                 padding: [14, 8, 14, 8]
                 spacing: 0
-                # bateria tabletu (ukryta, gdy urządzenie nie ma baterii - np. komputer)
+                # na górze numer wersji aplikacji; pod nim bateria tabletu: ikona, pod nią procent,
+                # obok błyskawica tylko podczas ładowania (bateria ukryta, gdy jej brak - komputer)
                 BoxLayout:
                     orientation: "vertical"
                     size_hint_x: None
-                    width: 56
-                    padding: [0, 16, 0, 12]
+                    width: 70
+                    padding: [0, 2, 0, 12]
                     spacing: 2
-                    opacity: 1 if app.tablet_battery_text else 0
-                    Icon:
-                        icon: app.tablet_battery_icon
-                        font_size: "34sp"
-                        color: app.tablet_battery_color
-                        pos_hint: {"center_x": 0.5}
                     Label:
-                        text: app.tablet_battery_text
-                        markup: True
-                        font_size: "15sp"
+                        text: ("v" + app.app_version) if app.app_version else ""
+                        font_size: "12sp"
                         color: config.COLOR_TEXT_DIM
                         size_hint_y: None
+                        height: 16
+                        text_size: self.size
+                        halign: "left"
+                        valign: "middle"
+                    BoxLayout:
+                        opacity: 1 if app.tablet_battery_text else 0
+                        AnchorLayout:
+                            size_hint_x: None
+                            width: 44
+                            Icon:
+                                icon: app.tablet_battery_icon
+                                font_size: "34sp"
+                                color: app.tablet_battery_color
+                        AnchorLayout:
+                            anchor_x: "left"
+                            Icon:
+                                icon: "flash"
+                                font_size: "24sp"
+                                color: config.COLOR_SUN_ICON
+                                opacity: 1 if app.tablet_charging else 0
+                    BoxLayout:
+                        size_hint_y: None
                         height: 22
+                        Label:
+                            text: app.tablet_battery_text
+                            font_size: "15sp"
+                            color: config.COLOR_TEXT_DIM
+                            size_hint_x: None
+                            width: 44
+                        Widget:
                 BoxLayout:
                     orientation: "vertical"
                     Label:

@@ -2,7 +2,7 @@
 title = HA Kiosk
 package.name = hakiosk
 package.domain = pl.mieszkanie
-version = 0.8
+version = 0.9
 
 source.dir = .
 source.include_exts = py,png,kv,ttf,json

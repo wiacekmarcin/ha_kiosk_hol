@@ -262,3 +262,44 @@ def kill_app():
             Logger.warning(f"Kiosk: nie udało się zakończyć procesu: {e}")
     from kivy.app import App
     App.get_running_app().stop()
+
+
+# --- zdarzenia zasilania i wersja aplikacji ---------------------------------------------
+POWER_ACTIONS = [
+    "android.intent.action.ACTION_POWER_CONNECTED",      # podłączono ładowarkę
+    "android.intent.action.ACTION_POWER_DISCONNECTED",   # odłączono ładowarkę
+    "android.intent.action.BATTERY_CHANGED",             # poziom / stan / temperatura baterii
+]
+_power_receiver = None          # referencja trzymana, żeby odbiornik działał
+
+
+def watch_power(callback) -> bool:
+    """Rejestruje odbiornik zdarzeń zasilania; callback() wołany z wątku Javy
+    (wołający przekazuje go do wątku Kivy). False = komputer albo błąd."""
+    global _power_receiver
+    if not ANDROID:
+        return False
+    if _power_receiver is not None:
+        return True
+    try:
+        from android.broadcast import BroadcastReceiver   # moduł p4a, dostępny tylko w APK
+        receiver = BroadcastReceiver(lambda _context, _intent: callback(), actions=POWER_ACTIONS)
+        receiver.start()
+        _power_receiver = receiver
+        return True
+    except Exception as e:      # noqa: BLE001
+        Logger.warning(f"Tablet: nie udało się nasłuchiwać zdarzeń zasilania: {e}")
+        return False
+
+
+def app_version() -> str:
+    """Wersja aplikacji (versionName z APK); na komputerze "dev"."""
+    if not ANDROID:
+        return "dev"
+    try:
+        activity = _activity()
+        info = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0)
+        return info.versionName or ""
+    except Exception as e:      # noqa: BLE001
+        Logger.warning(f"Kiosk: nie udało się odczytać wersji aplikacji: {e}")
+        return ""

@@ -56,6 +56,9 @@ class KioskApp(App):
     tablet_battery_icon = StringProperty("battery-unknown")
     tablet_battery_text = StringProperty("")
     tablet_battery_color = ListProperty(list(config.COLOR_TEXT_DIM))
+    tablet_charging = BooleanProperty(False)            # tablet podłączony do ładowania
+    app_version = StringProperty("")                    # versionName z APK (nad baterią)
+    _last_battery = None                                # ostatni stan baterii wysłany do HA
     # jasność i głośność tabletu 0-100 (ekran Ustawienia, encje input_number w HA)
     tablet_brightness = NumericProperty(100)
     tablet_volume = NumericProperty(50)
@@ -125,6 +128,11 @@ class KioskApp(App):
             Clock.schedule_interval(lambda _dt: self._auto_brightness_tick(),
                                     AUTO_BRIGHTNESS_SECONDS)
         self.check_tablet_battery()
+        # zdarzenia zasilania (ładowarka podłączona / odłączona, zmiana poziomu baterii):
+        # ikona przy zegarze i encja w HA od razu, bez czekania na sprawdzenie co minutę
+        self._battery_trigger = Clock.create_trigger(lambda _dt: self.check_tablet_battery(), 0.3)
+        device.watch_power(self._battery_trigger)
+        self.app_version = device.app_version()
         Clock.schedule_interval(lambda _dt: self.check_tablet_battery(), TABLET_BATTERY_SECONDS)
 
         self.provider = None
@@ -292,15 +300,19 @@ class KioskApp(App):
         info = device.battery()
         if info is None:
             self.tablet_battery_text = ""
+            self.tablet_charging = False
         else:
             level = info["level"]
             self.tablet_battery_icon = device.battery_icon(level)
-            charge = f"[font={icons.FONT_NAME}]{icons.glyph('flash')}[/font]" if info["charging"] else ""
-            self.tablet_battery_text = f"{charge}{level}%"
+            self.tablet_battery_text = f"{level}%"
+            self.tablet_charging = bool(info["charging"])     # błyskawica obok ikony
             self.tablet_battery_color = list(config.COLOR_ERROR if level < 20 else
                                              config.COLOR_HEAT if level < 40 else config.COLOR_OK)
-        if self.tablet_sync:
+        # do HA od razu tylko zmiana (BATTERY_CHANGED przychodzi często);
+        # wątek synchronizacji i tak zapisuje stan baterii co 30 s
+        if self.tablet_sync and info != self._last_battery:
             self.tablet_sync.set_battery(info)
+        self._last_battery = info
 
     def set_tablet(self, kind: str, value, sync: bool = True, auto: bool = False):
         """Jasność / głośność tabletu (0-100): ustawia urządzenie, zapisuje w local.json
