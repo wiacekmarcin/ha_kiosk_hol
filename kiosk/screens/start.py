@@ -7,15 +7,17 @@ from kivy.clock import Clock
 from kivy.factory import Factory
 from kivy.properties import (BooleanProperty, DictProperty, ListProperty, NumericProperty,
                              StringProperty)
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.screenmanager import Screen
 
-from kiosk import calendars, pl
+from kiosk import calendars, moon, pl, sun_year
 from kiosk.ui import make
 from kiosk.weather_icons import is_night
 from kiosk.widgets.history_dialog import HistoryDialog, sensor_series
 from kiosk.widgets.rooms_dialog import RoomsDialog
 from kiosk.widgets.weather_dialog import WeatherDialog
 from kiosk.widgets.calendar_dialogs import EventsDialog, MonthDialog
+from kiosk.widgets.moon_dialog import MoonDialog
 from kiosk.widgets.sun_dialog import SunDialog
 
 DIM = "#949ba8"
@@ -116,6 +118,14 @@ class StartScreen(Screen):
     kartka_red = BooleanProperty(False)      # niedziela albo święto
     kartka_text = StringProperty("")         # święta, wydarzenia, imieniny, przysłowia
 
+    # kartka: słońce (lewy górny róg) i Księżyc (prawy górny róg) - liczone lokalnie
+    kartka_sunrise = StringProperty("--:--")
+    kartka_sunset = StringProperty("--:--")
+    kartka_daylength = StringProperty("")
+    kartka_moonrise = StringProperty("--:--")
+    kartka_moonset = StringProperty("--:--")
+    kartka_moon_phase = NumericProperty(0.0)
+    kartka_moon_name = StringProperty("")
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         Clock.schedule_once(self._post_init)
@@ -191,9 +201,11 @@ class StartScreen(Screen):
             ))
 
     def on_sensors(self, _inst, sensors):
-        """Siatka 2x2: kafelki czujników, a na końcu kafelek wschodu/zachodu słońca."""
-        grid = self.ids.sensors
-        grid.clear_widgets()
+        """Kafelki czujników po 2 w wierszu; nieparzysty ostatni zajmuje całą szerokość
+        (słońce i Księżyc są na kartce z kalendarza)."""
+        box = self.ids.sensors
+        box.clear_widgets()
+        tiles = []
         for s in sensors:
             hum = s.get("humidity") or {}
             tile = make("SensorTile",
@@ -207,22 +219,40 @@ class StartScreen(Screen):
             else:
                 tile.bind(on_release=lambda _t, sensor=s: self.open_sensor_history(sensor))
             tile.ids.more.bind(on_release=lambda _b: self.open_rooms())
-            grid.add_widget(tile)
-        grid.add_widget(self._sun_tile())
-
-    def _sun_tile(self):
-        if not hasattr(self, "_sun"):
-            self._sun = make("SunTile", rising=self.sunrise, setting=self.sunset)
-            self.bind(sunrise=lambda _i, v: setattr(self._sun, "rising", v),
-                      sunset=lambda _i, v: setattr(self._sun, "setting", v))
-            self._sun.bind(on_release=lambda _t: self.open_sun())
-        if self._sun.parent:
-            self._sun.parent.remove_widget(self._sun)
-        return self._sun
+            tiles.append(tile)
+        for i in range(0, len(tiles), 2):
+            row = BoxLayout(spacing=12)
+            for tile in tiles[i:i + 2]:
+                row.add_widget(tile)
+            box.add_widget(row)
+        rows = (len(tiles) + 1) // 2
+        box.height = rows * 132 + max(rows - 1, 0) * 12
 
     def open_sun(self):
-        """Kafelek Słońce -> wykres wschodów i zachodów w roku (położenie domu z HA)."""
+        """Słońce na kartce -> wykres wschodów i zachodów w roku (położenie domu z HA)."""
         SunDialog(location=self.location or None).open()
+
+    def open_moon(self):
+        """Księżyc na kartce -> fazy Księżyca."""
+        MoonDialog(location=self.location or None).open()
+
+    def on_location(self, *_):
+        self._update_astro()
+
+    def _update_astro(self):
+        """Kartka: wschód i zachód słońca oraz Księżyca dziś, faza Księżyca."""
+        loc = self.location or sun_year.DEFAULT_LOCATION
+        today = date.today()
+        sun = sun_year.sun_day(today, loc["latitude"], loc["longitude"], loc.get("elevation", 0))
+        self.kartka_sunrise = sun["rise"].strftime("%H:%M") if sun["rise"] else "--:--"
+        self.kartka_sunset = sun["set"].strftime("%H:%M") if sun["set"] else "--:--"
+        self.kartka_daylength = f"dzień {sun_year.duration(sun['length'])}"
+        rs = moon.rise_set(today, loc["latitude"], loc["longitude"])
+        self.kartka_moonrise = rs["rise"].strftime("%H:%M") if rs["rise"] else "--:--"
+        self.kartka_moonset = rs["set"].strftime("%H:%M") if rs["set"] else "--:--"
+        info = moon.phase_info()
+        self.kartka_moon_phase = info["phase"]
+        self.kartka_moon_name = info["name"].lower()
 
     def on_events(self, *_):
         self._render_calendar()
@@ -234,6 +264,7 @@ class StartScreen(Screen):
     def refresh_kartka(self, *_):
         """Kartka na dziś: dzień, święta (kalendarz świąt HA), wydarzenia z kalendarzy HA,
         imieniny, inne święta i przysłowia (kalbi.pl, cache na dysku)."""
+        self._update_astro()
         from kivy.app import App
         app = App.get_running_app()
         today = date.today()

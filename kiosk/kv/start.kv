@@ -117,30 +117,32 @@
             disabled: not root.more
             pos_hint: {"center_y": 0.5}
 
-# Wschód i zachód słońca w jednym kafelku - dotknięcie otwiera "Słońce w roku"
-<SunTile@TouchCard>:
-    rising: "--:--"
-    setting: "--:--"
-    orientation: "vertical"
-    padding: [20, 12]
-    spacing: 0
-    Label:
-        text: "Słońce"
-        font_size: "20sp"
-        color: config.COLOR_TEXT_DIM
-        size_hint_y: None
-        height: 32
-        text_size: self.size
-        halign: "left"
-        valign: "middle"
-    SunRow:
-        icon: "weather-sunset-up"
-        label: "Wschód"
-        time: root.rising
-    SunRow:
-        icon: "weather-sunset-down"
-        label: "Zachód"
-        time: root.setting
+# Wiersz na kartce: ikona + godzina (wschód / zachód słońca albo Księżyca)
+<AstroRow@AnchorLayout>:
+    icon: ""
+    time: ""
+    icon_color: config.COLOR_SUN_ICON
+    align: "left"
+    anchor_x: self.align
+    size_hint_y: None
+    height: 36
+    BoxLayout:
+        size_hint_x: None
+        width: 30 + 8 + time_label.texture_size[0]
+        spacing: 8
+        Icon:
+            icon: root.icon
+            font_size: "24sp"
+            color: root.icon_color
+            size_hint_x: None
+            width: 30
+        Label:
+            id: time_label
+            text: root.time
+            font_size: "22sp"
+            bold: True
+            size_hint_x: None
+            width: self.texture_size[0]
 
 <SunRow@BoxLayout>:
     icon: ""
@@ -306,18 +308,12 @@
                             size_hint_x: None
                             width: 44
                         Widget:
-                BoxLayout:
-                    orientation: "vertical"
-                    Label:
-                        text: root.time_text
-                        markup: True
-                        font_size: "64sp"
-                        bold: True
-                    Label:
-                        text: root.date_text
-                        font_size: "24sp"
-                        size_hint_y: None
-                        height: 36
+                # sam czas - data jest na kartce z kalendarza
+                Label:
+                    text: root.time_text
+                    markup: True
+                    font_size: "80sp"
+                    bold: True
                 # stan połączeń: Wi-Fi (zielona = jest sieć), pod nią Home Assistant
                 BoxLayout:
                     orientation: "vertical"
@@ -386,10 +382,11 @@
                 BoxLayout:
                     id: forecast
 
-            # Czujniki + słońce 2x2 (wypełniane w StartScreen.on_sensors)
-            GridLayout:
+            # Czujniki po 2 w wierszu, nieparzysty ostatni na całą szerokość
+            # (wypełniane w StartScreen.on_sensors)
+            BoxLayout:
                 id: sensors
-                cols: 2
+                orientation: "vertical"
                 spacing: 12
                 size_hint_y: None
                 height: 2 * 132 + 12
@@ -409,29 +406,97 @@
                     pos: self.pos
                     size: self.size
                     radius: [config.CARD_RADIUS]
+            # jak w zrywanym kalendarzu: po lewej słońce, pośrodku dzień, po prawej Księżyc
             TouchBox:
-                orientation: "vertical"
                 size_hint_y: None
                 height: 304
-                padding: [16, 24, 16, 6]
+                padding: [14, 16, 14, 6]
                 on_release: root.open_month()
-                Label:
-                    text: root.kartka_weekday
-                    font_size: "30sp"
-                    color: config.COLOR_ERROR if root.kartka_red else config.COLOR_TEXT
-                    size_hint_y: None
-                    height: 44
-                Label:
-                    text: root.kartka_day
-                    font_size: "150sp"
-                    bold: True
-                    color: config.COLOR_ERROR if root.kartka_red else config.COLOR_TEXT
-                Label:
-                    text: root.kartka_month
-                    font_size: "26sp"
-                    color: config.COLOR_TEXT_DIM
-                    size_hint_y: None
-                    height: 38
+                # słońce: wschód i zachód dziś -> okno "Słońce w roku"
+                TouchBox:
+                    orientation: "vertical"
+                    size_hint_x: None
+                    width: 140
+                    spacing: 2
+                    on_release: root.open_sun()
+                    AnchorLayout:
+                        anchor_x: "left"
+                        size_hint_y: None
+                        height: 60
+                        Icon:
+                            icon: "weather-sunny"
+                            font_size: "48sp"
+                            color: config.COLOR_SUN_ICON
+                    AstroRow:
+                        icon: "weather-sunset-up"
+                        time: root.kartka_sunrise
+                    AstroRow:
+                        icon: "weather-sunset-down"
+                        time: root.kartka_sunset
+                    Label:
+                        text: root.kartka_daylength
+                        font_size: "15sp"
+                        color: config.COLOR_TEXT_DIM
+                        size_hint_y: None
+                        height: 24
+                        text_size: self.size
+                        halign: "left"
+                        valign: "middle"
+                    Widget:
+                BoxLayout:
+                    orientation: "vertical"
+                    Label:
+                        text: root.kartka_weekday
+                        font_size: "30sp"
+                        color: config.COLOR_ERROR if root.kartka_red else config.COLOR_TEXT
+                        size_hint_y: None
+                        height: 44
+                    Label:
+                        text: root.kartka_day
+                        font_size: "150sp"
+                        bold: True
+                        color: config.COLOR_ERROR if root.kartka_red else config.COLOR_TEXT
+                    Label:
+                        text: root.kartka_month
+                        font_size: "26sp"
+                        color: config.COLOR_TEXT_DIM
+                        size_hint_y: None
+                        height: 38
+                # Księżyc: faza, wschód i zachód dziś -> okno faz Księżyca
+                TouchBox:
+                    orientation: "vertical"
+                    size_hint_x: None
+                    width: 140
+                    spacing: 2
+                    on_release: root.open_moon()
+                    AnchorLayout:
+                        anchor_x: "right"
+                        size_hint_y: None
+                        height: 60
+                        MoonDisc:
+                            phase: root.kartka_moon_phase
+                            size_hint: None, None
+                            size: 50, 50
+                    AstroRow:
+                        icon: "arrow-up"
+                        icon_color: 0.96, 0.93, 0.80, 1
+                        time: root.kartka_moonrise
+                        align: "right"
+                    AstroRow:
+                        icon: "arrow-down"
+                        icon_color: 0.96, 0.93, 0.80, 1
+                        time: root.kartka_moonset
+                        align: "right"
+                    Label:
+                        text: root.kartka_moon_name
+                        font_size: "15sp"
+                        color: config.COLOR_TEXT_DIM
+                        size_hint_y: None
+                        height: 24
+                        text_size: self.size
+                        halign: "right"
+                        valign: "middle"
+                    Widget:
             Divider:
             TouchBox:
                 on_release: root.open_events()

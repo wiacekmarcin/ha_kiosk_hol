@@ -132,6 +132,7 @@ _CODES = {
     "brightness-auto": 0xF00E1,
     "arrow-up": 0xF005D,
     "arrow-left": 0xF004D,
+    "arrow-down": 0xF0045,
     "calendar-plus": 0xF00F3,
     "heart": 0xF02D1,
     "email": 0xF01EE,

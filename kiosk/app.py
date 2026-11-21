@@ -36,7 +36,6 @@ SECTIONS = {"start": "home", "kartka": "home", "energy": "energy", "heating": "h
             "battery": "battery", "switches": "switches", "settings": "settings"}
 BATTERY_CHECK_SECONDS = 600     # kolor ikony baterii w menu: sprawdzanie co 10 min
 NETWORK_CHECK_SECONDS = 10      # ikona Wi-Fi obok zegara
-HOME_TIMEOUT_SECONDS = 180      # bez dotyku: powrót na ekran startowy (zamyka też okna)
 TABLET_BATTERY_SECONDS = 60     # ikona baterii tabletu obok zegara i encja w HA
 AUTO_BRIGHTNESS_SECONDS = 2     # automatyczna jasność: odczyt czujnika światła
 AUTO_BRIGHTNESS_STEP = 5        # maks. zmiana jasności na krok (płynne przejście)
@@ -110,11 +109,10 @@ class KioskApp(App):
         Clock.schedule_once(lambda _dt: self.prefetch_kartka(), 10)
         Clock.schedule_interval(lambda _dt: self.prefetch_kartka(), 3600)
 
-        # wygaszanie ekranu po bezczynności, budzenie dotykiem / ruchem (przednia kamera)
+        # wygaszanie ekranu po bezczynności, budzenie dotykiem / ruchem (przednia kamera);
+        # dopiero wygaszenie zamyka okna, a wybudzenie pokazuje ekran startowy
         self.screensaver = ScreenSaver(on_wake=lambda: self.go_to("start"))
         self.apply_screen_settings()
-        # każdy ekran i każde okno po 3 minutach bez dotyku wraca na ekran startowy
-        Clock.schedule_interval(lambda _dt: self._check_home_timeout(), 10)
 
         self.check_network()
         Clock.schedule_interval(lambda _dt: self.check_network(), NETWORK_CHECK_SECONDS)
@@ -451,19 +449,5 @@ class KioskApp(App):
             return True                         # nigdy nie zamykaj aplikacji
         return False
 
-    def _check_home_timeout(self):
-        """Po HOME_TIMEOUT_SECONDS bez dotyku: zamknij okna i wróć na ekran startowy."""
-        if self.screensaver.idle_seconds() < HOME_TIMEOUT_SECONDS:
-            return
-        from kivy.uix.modalview import ModalView
-        opened = [w for w in Window.children if isinstance(w, ModalView)]
-        if self.sm.current == "start" and not opened:
-            return
-        Logger.info("Kiosk: brak aktywności - powrót na ekran startowy")
-        for w in opened:
-            w.dismiss()
-        self.go_to("start")
-
-    def go_to(self, screen_name: str):
         self.sm.current = screen_name
         self.section = SECTIONS.get(screen_name, screen_name)
