@@ -1,0 +1,346 @@
+#:import config kiosk.config
+#:import icons kiosk.icons
+
+#:set KARTKA_RED (0.78, 0.16, 0.16, 1)
+
+# Etykieta zawijająca tekst, wysokość dopasowana do treści
+<WrapLabel@Label>:
+    text_size: self.width, None
+    size_hint_y: None
+    height: self.texture_size[1] if self.text else 0
+    halign: "left"
+    valign: "top"
+
+# Sekcja kartki: ikona + tytuł, treść jako dzieci; ukryta gdy shown == False
+<InfoSection@BoxLayout>:
+    icon: ""
+    title: ""
+    shown: True
+    orientation: "vertical"
+    size_hint_y: None
+    height: self.minimum_height if self.shown else 0
+    opacity: 1 if self.shown else 0
+    padding: [20, 14, 20, 16] if self.shown else 0
+    spacing: 6
+    canvas.before:
+        Color:
+            rgba: config.COLOR_CARD
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+    BoxLayout:
+        size_hint_y: None
+        height: 30 if root.shown else 0
+        spacing: 10
+        Icon:
+            icon: root.icon
+            font_size: "22sp"
+            color: config.COLOR_ACCENT
+            pos_hint: {"center_y": 0.5}
+        Label:
+            text: root.title
+            font_size: "16sp"
+            color: config.COLOR_TEXT_DIM
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
+
+<NavDay@ButtonBehavior+BoxLayout>:
+    icon: ""
+    text: ""
+    reverse: False
+    size_hint: None, None
+    size: 130, 52
+    spacing: 4
+    opacity: 0.6 if self.state == "normal" else 1
+
+<KartkaScreen>:
+    BoxLayout:
+        padding: 16
+        spacing: 16
+
+        # ===================== kartka (lewa strona) =====================
+        BoxLayout:
+            orientation: "vertical"
+            size_hint_x: None
+            width: 440
+            canvas.before:
+                Color:
+                    rgba: config.COLOR_CARD
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [16]
+            # czerwony nagłówek z "zszywkami"
+            BoxLayout:
+                orientation: "vertical"
+                size_hint_y: None
+                height: 170
+                padding: [24, 26, 24, 14]
+                canvas.before:
+                    Color:
+                        rgba: KARTKA_RED
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [16, 16, 0, 0]
+                    Color:
+                        rgba: 0.08, 0.08, 0.1, 0.55
+                    RoundedRectangle:
+                        pos: self.center_x - 90, self.top - 14
+                        size: 36, 8
+                        radius: [4]
+                    RoundedRectangle:
+                        pos: self.center_x + 54, self.top - 14
+                        size: 36, 8
+                        radius: [4]
+                BoxLayout:
+                    size_hint_y: None
+                    height: 26
+                    Label:
+                        text: root.day_of_year
+                        font_size: "16sp"
+                        color: 1, 1, 1, 0.85
+                        text_size: self.size
+                        halign: "left"
+                        valign: "middle"
+                    Label:
+                        text: root.week
+                        font_size: "16sp"
+                        color: 1, 1, 1, 0.85
+                        text_size: self.size
+                        halign: "right"
+                        valign: "middle"
+                Label:
+                    text: root.month
+                    font_size: "46sp"
+                    bold: True
+                    color: 1, 1, 1, 1
+                Label:
+                    text: root.year
+                    font_size: "24sp"
+                    color: 1, 1, 1, 0.9
+                    size_hint_y: None
+                    height: 32
+
+            # dzień
+            Label:
+                text: root.day_num
+                font_size: "230sp"
+                bold: True
+                color: KARTKA_RED if root.is_sunday else config.COLOR_TEXT
+            Label:
+                text: root.weekday
+                font_size: "42sp"
+                color: KARTKA_RED if root.is_sunday else config.COLOR_TEXT
+                size_hint_y: None
+                height: 64
+
+            # nawigacja: poprzedni / dzisiaj / następny
+            BoxLayout:
+                size_hint_y: None
+                height: 84
+                padding: [16, 8, 16, 24]
+                NavDay:
+                    on_release: root.prev_day()
+                    Icon:
+                        icon: "chevron-left"
+                        font_size: "30sp"
+                        pos_hint: {"center_y": 0.5}
+                    Label:
+                        text: root.prev_text
+                        font_size: "18sp"
+                        text_size: self.size
+                        halign: "left"
+                        valign: "middle"
+                AnchorLayout:
+                    Button:
+                        text: "Dzisiaj"
+                        font_size: "18sp"
+                        size_hint: None, None
+                        size: 110, 44
+                        background_normal: ""
+                        background_down: ""
+                        background_color: 0, 0, 0, 0
+                        color: config.COLOR_ACCENT
+                        opacity: 0 if root.is_today else 1
+                        disabled: root.is_today
+                        on_release: root.today()
+                NavDay:
+                    on_release: root.next_day()
+                    Label:
+                        text: root.next_text
+                        font_size: "18sp"
+                        text_size: self.size
+                        halign: "right"
+                        valign: "middle"
+                    Icon:
+                        icon: "chevron-right"
+                        font_size: "30sp"
+                        pos_hint: {"center_y": 0.5}
+
+        # ===================== informacje (prawa strona) =====================
+        BoxLayout:
+            orientation: "vertical"
+            spacing: 8
+            BoxLayout:
+                size_hint_y: None
+                height: 48
+                spacing: 10
+                padding: [6, 0]
+                Icon:
+                    icon: "calendar-today"
+                    font_size: "24sp"
+                    pos_hint: {"center_y": 0.5}
+                Label:
+                    text: "Kartka z kalendarza"
+                    font_size: "22sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "middle"
+                CloseButton:
+                    icon: "close"
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.close()
+
+            ScrollView:
+                do_scroll_x: False
+                bar_width: 4
+                BoxLayout:
+                    orientation: "vertical"
+                    size_hint_y: None
+                    height: self.minimum_height
+                    spacing: 12
+                    padding: [0, 0, 8, 8]
+
+                    InfoSection:
+                        icon: "cake-variant"
+                        title: "Imieniny obchodzą"
+                        shown: bool(root.namedays_main)
+                        WrapLabel:
+                            text: root.namedays_main
+                            font_size: "30sp"
+                            bold: True
+                        WrapLabel:
+                            text: root.namedays_other
+                            font_size: "17sp"
+                            color: config.COLOR_TEXT_DIM
+
+                    # wiersz 2 kart o równej wysokości; brak jednej -> druga na całą szerokość
+                    BoxLayout:
+                        spacing: 12 if (church.shown and proverb.shown) else 0
+                        size_hint_y: None
+                        height: max(church.minimum_height if church.shown else 0, proverb.minimum_height if proverb.shown else 0)
+                        InfoSection:
+                            id: church
+                            icon: "church"
+                            title: "W Kościele"
+                            shown: bool(root.church)
+                            # ukryta: szerokość 0 (Kivy przy size_hint_x = 0 zostawia starą szerokość)
+                            size_hint: (1 if self.shown else None), 1
+                            width: 100 if self.shown else 0
+                            WrapLabel:
+                                text: root.church
+                                font_size: "19sp"
+                            WrapLabel:
+                                text: root.church_rank
+                                font_size: "16sp"
+                                color: config.COLOR_TEXT_DIM
+                            Widget:
+                        InfoSection:
+                            id: proverb
+                            icon: "book-open-variant"
+                            title: "Przysłowie na dziś"
+                            shown: bool(root.proverbs)
+                            # ukryta: szerokość 0 (Kivy przy size_hint_x = 0 zostawia starą szerokość)
+                            size_hint: (1 if self.shown else None), 1
+                            width: 100 if self.shown else 0
+                            WrapLabel:
+                                text: root.proverbs
+                                font_size: "19sp"
+                                italic: True
+                            Widget:
+
+                    InfoSection:
+                        icon: "party-popper"
+                        title: "Nietypowe święta"
+                        shown: bool(root.holidays)
+                        WrapLabel:
+                            text: root.holidays
+                            font_size: "18sp"
+                            line_height: 1.25
+
+                    BoxLayout:
+                        spacing: 12 if sun.shown else 0
+                        size_hint_y: None
+                        height: max(sun.minimum_height if sun.shown else 0, moon.minimum_height)
+                        InfoSection:
+                            id: sun
+                            icon: "weather-sunny"
+                            title: "Słońce"
+                            shown: bool(root.sun_keys)
+                            # ukryta: szerokość 0 (Kivy przy size_hint_x = 0 zostawia starą szerokość)
+                            size_hint: (1 if self.shown else None), 1
+                            width: 100 if self.shown else 0
+                            BoxLayout:
+                                size_hint_y: None
+                                height: sun_k.height
+                                WrapLabel:
+                                    id: sun_k
+                                    text: root.sun_keys
+                                    font_size: "17sp"
+                                    color: config.COLOR_TEXT_DIM
+                                    line_height: 1.3
+                                WrapLabel:
+                                    text: root.sun_values
+                                    markup: True
+                                    font_size: "17sp"
+                                    halign: "right"
+                                    line_height: 1.3
+                            Widget:
+                        InfoSection:
+                            id: moon
+                            icon: "weather-night"
+                            title: "Księżyc"
+                            size_hint: 1, 1
+                            BoxLayout:
+                                size_hint_y: None
+                                height: 56
+                                spacing: 14
+                                Icon:
+                                    icon: root.moon_icon
+                                    font_size: "48sp"
+                                    color: 0.93, 0.9, 0.75, 1
+                                    pos_hint: {"center_y": 0.5}
+                                Label:
+                                    text: root.moon_phase
+                                    font_size: "22sp"
+                                    text_size: self.size
+                                    halign: "left"
+                                    valign: "middle"
+                            WrapLabel:
+                                text: root.moon_details
+                                font_size: "16sp"
+                                color: config.COLOR_TEXT_DIM
+                                line_height: 1.3
+                            Widget:
+
+                    InfoSection:
+                        icon: "format-quote-open"
+                        title: "Cytat dnia"
+                        shown: bool(root.quote)
+                        WrapLabel:
+                            text: root.quote
+                            font_size: "20sp"
+                            italic: True
+                        WrapLabel:
+                            text: root.quote_author
+                            font_size: "16sp"
+                            color: config.COLOR_TEXT_DIM
+                            halign: "right"
+
+                    WrapLabel:
+                        text: root.footer
+                        font_size: "13sp"
+                        color: config.COLOR_TEXT_DIM

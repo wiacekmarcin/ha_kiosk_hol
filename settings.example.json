@@ -1,0 +1,266 @@
+{
+  "url": "http://homeassistant.local:8123",
+  "token": "WKLEJ_TUTAJ_LONG_LIVED_TOKEN",
+  "entities": {
+    "weather": "weather.forecast_home",
+    "sun": "sun.sun",
+    "calendars": [
+      "calendar.dom"
+    ],
+    "sensors": [
+      {
+        "entity_id": "sensor.temperatura_zewnetrzna",
+        "name": "Na zewnątrz",
+        "icon": "thermometer",
+        "humidity": "sensor.wilgotnosc_zewnetrzna"
+      },
+      {
+        "entity_id": "sensor.hol_temperatura",
+        "name": "Hol",
+        "icon": "home-thermometer",
+        "action": "rooms",
+        "humidity": "sensor.hol_wilgotnosc"
+      },
+      {
+        "entity_id": "sensor.mieszkanie_temperatura",
+        "name": "Mieszkanie",
+        "icon": "home-thermometer-outline",
+        "humidity": "sensor.mieszkanie_wilgotnosc"
+      }
+    ],
+    "rooms": [
+      {
+        "name": "WC",
+        "temperature": "sensor.wc_temperatura",
+        "humidity": "sensor.wc_wilgotnosc"
+      },
+      {
+        "name": "Hol",
+        "temperature": "sensor.hol_temperatura",
+        "humidity": "sensor.hol_wilgotnosc"
+      }
+    ],
+    "energy": {
+      "title": "Rozdzielnia elektryczna",
+      "summary": [
+        "sensor.moc_chwilowa",
+        "sensor.moc_pobrana"
+      ],
+      "phases": [
+        {
+          "name": "Faza 1",
+          "voltage": "sensor.u_l1",
+          "current": "sensor.i_l1",
+          "power": "sensor.p_f1",
+          "power_factor": "sensor.rozdzielnia_elektryczna_wspolczynnik_mocy_f1"
+        },
+        {
+          "name": "Faza 2",
+          "voltage": "sensor.u_l2",
+          "current": "sensor.i_l2",
+          "power": "sensor.p_f2",
+          "power_factor": "sensor.rozdzielnia_elektryczna_wspolczynnik_mocy_f2"
+        },
+        {
+          "name": "Faza 3",
+          "voltage": "sensor.u_l3",
+          "current": "sensor.i_l3",
+          "power": "sensor.p_f3",
+          "power_factor": "sensor.rozdzielnia_elektryczna_wspolczynnik_mocy_f3"
+        }
+      ],
+      "totals": [
+        {
+          "entity_id": "sensor.moc_chwilowa",
+          "name": "Moc chwilowa",
+          "icon": "transmission-tower-export"
+        },
+        {
+          "entity_id": "sensor.wspolczynik_mocy",
+          "name": "Współczynnik mocy",
+          "icon": "angle-acute"
+        },
+        {
+          "entity_id": "sensor.moc_pobrana",
+          "name": "Energia pobrana",
+          "icon": "lightning-bolt",
+          "decimals": 3
+        },
+        {
+          "entity_id": "sensor.moc_chwilowa_bierna",
+          "name": "Moc bierna",
+          "icon": "transmission-tower"
+        },
+        {
+          "entity_id": "sensor.moc_chwilowa_pozornma",
+          "name": "Moc pozorna",
+          "icon": "transmission-tower"
+        },
+        {
+          "entity_id": "sensor.energia_bierna",
+          "name": "Energia bierna",
+          "icon": "lightning-bolt"
+        },
+        {
+          "entity_id": "sensor.czestotliwosc_napiecia",
+          "name": "Częstotliwość",
+          "icon": "sine-wave"
+        },
+        {
+          "entity_id": "sensor.energycalc_flask_aktualny_koszt",
+          "name": "Aktualny koszt",
+          "icon": "cash-clock"
+        },
+        {
+          "entity_id": "sensor.scena_aktualna_cena_energii",
+          "name": "Cena energii",
+          "icon": "cash",
+          "decimals": 6
+        }
+      ]
+    },
+    "heating": {
+      "title": "Ogrzewanie",
+      "summary": [
+        "sensor.heating_power",
+        "sensor.heating_energy"
+      ],
+      "thermostats": [
+        {
+          "entity_id": "climate.pokoj_dzieci_grzejnik",
+          "name": "Dzieci"
+        },
+        {
+          "entity_id": "climate.sypialnia",
+          "name": "Sypialnia"
+        },
+        {
+          "entity_id": "climate.pracownia_grzejnik",
+          "name": "Pracownia"
+        },
+        {
+          "entity_id": "climate.salon_salon_grzej_salon_salon_grzej_climate",
+          "name": "Salon",
+          "temperature_sensor": "sensor.tih_z_salon_temperature"
+        },
+        {
+          "entity_id": "climate.jadalnia_jadalnia_grzej_jadalnia_jadalnia_grzej_climate",
+          "name": "Jadalnia",
+          "temperature_sensor": "sensor.tih_z_kitchen_temperature"
+        }
+      ],
+      "floor": {
+        "switch": "switch.heating",
+        "pump": "switch.arduinomega_pompa",
+        "pump_timer": "timer.opoznienie_wlaczenia_pompy",
+        "power": "sensor.heating_power",
+        "energy": "sensor.heating_energy",
+        "zones": [
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_hol_1",
+            "name": "Hol 1"
+          },
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_hol_2",
+            "name": "Hol 2"
+          },
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_hol_3",
+            "name": "Hol 3"
+          },
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_kuchnia",
+            "name": "Kuchnia"
+          },
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_lazienka",
+            "name": "Łazienka"
+          },
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_salon",
+            "name": "Salon"
+          },
+          {
+            "entity_id": "switch.arduinomega_ogrzewanie_podlogowe_wc",
+            "name": "WC"
+          }
+        ]
+      }
+    },
+    "battery": {
+      "exclude": [],
+      "names": {}
+    },
+    "switches": {
+      "exclude": [
+        "switch.arduinomega_ogrzewanie_podlogowe_hol_1",
+        "switch.arduinomega_ogrzewanie_podlogowe_hol_2",
+        "switch.arduinomega_ogrzewanie_podlogowe_hol_3",
+        "switch.arduinomega_ogrzewanie_podlogowe_kuchnia",
+        "switch.arduinomega_ogrzewanie_podlogowe_lazienka",
+        "switch.arduinomega_ogrzewanie_podlogowe_salon",
+        "switch.arduinomega_ogrzewanie_podlogowe_wc"
+      ],
+      "names": {},
+      "readonly": [
+        "switch.arduinomega_pompa"
+      ],
+      "sections": [
+        {
+          "name": "Start",
+          "protect": [
+            "switch.main_power_switch"
+          ],
+          "entities": [
+            "switch.main_power_switch",
+            "switch.wifi_access_point_1",
+            "switch.vectra_decoder",
+            "switch.microwave",
+            "switch.dvd_player",
+            "switch.kitchen_hood",
+            "switch.oswietlenie_tv",
+            "switch.roaster",
+            "switch.washing_machine",
+            "switch.tv_samsung",
+            "switch.electric_dryer",
+            "switch.arduinomega_wiatrak_kuchnia",
+            "switch.arduinomega_wiatrak_lazienka",
+            "switch.charger_1",
+            "switch.charger_2"
+          ]
+        },
+        {
+          "name": "Włączone",
+          "on": true
+        },
+        {
+          "name": "Rozdzielnia",
+          "protect": "all",
+          "entities": [
+            "switch.bathroom_el_socket",
+            "switch.fridge",
+            "switch.heating",
+            "switch.light"
+          ]
+        },
+        {
+          "name": "Centrala HA",
+          "protect": "all",
+          "entities": [
+            "switch.centrala_ha",
+            "switch.reservedrouter",
+            "switch.serwernas",
+            "switch.zasilacz_24v_on",
+            "switch.zasilacz_24v_off",
+            "switch.power_guaranted"
+          ]
+        },
+        {
+          "name": "Inne",
+          "rest": true,
+          "protect": "all"
+        }
+      ]
+    }
+  }
+}

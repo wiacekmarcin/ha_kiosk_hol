@@ -1,0 +1,166 @@
+#:import config kiosk.config
+#:import icons kiosk.icons
+
+<Label>:
+    color: config.COLOR_TEXT
+
+<Card@BoxLayout>:
+    padding: 20
+    spacing: 8
+    canvas.before:
+        Color:
+            rgba: config.COLOR_CARD
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+
+# Ikona MDI: Icon(icon="thermometer")
+<Icon@Label>:
+    icon: ""
+    text: icons.glyph(self.icon)
+    font_name: icons.FONT_NAME
+    font_size: "28sp"
+    color: config.COLOR_ICON
+    size_hint: None, None
+    size: self.texture_size
+
+<IconButton@ButtonBehavior+Icon>:
+    size: 44, 44
+    halign: "center"
+    valign: "middle"
+    text_size: self.size
+
+# Przycisk "Wstecz" zamykający okno pełnoekranowe: duże pole dotyku (190x64), strzałka i napis.
+# Nazwa klasy została (CloseButton) - używają jej wszystkie okna; "icon" ignorowane.
+<CloseButton@ButtonBehavior+BoxLayout>:
+    icon: "arrow-left"
+    size_hint: None, None
+    size: 190, 64
+    padding: [18, 0, 24, 0]
+    spacing: 10
+    canvas.before:
+        Color:
+            rgba: config.COLOR_ACCENT if self.state == "down" else config.COLOR_DIVIDER
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [32]
+    Icon:
+        icon: "arrow-left"
+        font_size: "32sp"
+        color: config.COLOR_TEXT
+        pos_hint: {"center_y": 0.5}
+    Label:
+        text: "Wstecz"
+        font_size: "22sp"
+        color: config.COLOR_TEXT
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+
+<FitLabel@Label>:
+    size_hint_x: None
+    width: self.texture_size[0]
+
+# Zakładka z podkreśleniem (jak w HA)
+<TabButton@ButtonBehavior+Label>:
+    selected: False
+    font_size: "18sp"
+    color: config.COLOR_ACCENT if self.selected else config.COLOR_TEXT
+    canvas.after:
+        Color:
+            rgba: config.COLOR_ACCENT if self.selected else (0, 0, 0, 0)
+        Rectangle:
+            pos: self.x, self.y
+            size: self.width, 2
+
+# "Więcej": trzy małe prostokąty; pole dotyku większe niż sam rysunek
+<MoreDots@ButtonBehavior+Widget>:
+    size_hint: None, None
+    size: 64, 40
+    canvas:
+        Color:
+            rgba: (config.COLOR_ACCENT if self.state == "down" else config.COLOR_TEXT_DIM)
+        RoundedRectangle:
+            pos: self.right - 46, self.center_y - 4
+            size: 9, 9
+            radius: [2]
+        RoundedRectangle:
+            pos: self.right - 31, self.center_y - 4
+            size: 9, 9
+            radius: [2]
+        RoundedRectangle:
+            pos: self.right - 16, self.center_y - 4
+            size: 9, 9
+            radius: [2]
+
+# Pozycja bocznego menu: section = podświetlana sekcja, target = ekran do otwarcia
+<NavItem@ButtonBehavior+AnchorLayout>:
+    icon: ""
+    section: ""
+    target: ""
+    tint: []          # stały kolor ikony (np. stan baterii); pusty = kolor wg zaznaczenia
+    size_hint_y: None
+    height: 76
+    on_release: app.go_to(self.target)
+    canvas.before:
+        Color:
+            rgba: config.COLOR_ACCENT_SOFT if app.section == self.section else (1, 1, 1, (0.06 if self.state == "down" else 0))
+        RoundedRectangle:
+            pos: self.center_x - 30, self.center_y - 24
+            size: 60, 48
+            radius: [24]
+    Icon:
+        icon: root.icon
+        font_size: "30sp"
+        color: root.tint if root.tint else (config.COLOR_ACCENT if app.section == root.section else config.COLOR_TEXT_DIM)
+
+<NavRail@BoxLayout>:
+    orientation: "vertical"
+    size_hint_x: None
+    width: 84
+    padding: [0, 16]
+    spacing: 8
+    canvas.before:
+        Color:
+            rgba: config.COLOR_CARD
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    NavItem:
+        icon: "home"
+        section: "home"
+        target: "start"
+    NavItem:
+        icon: "lightning-bolt"
+        section: "energy"
+        target: "energy"
+    NavItem:
+        icon: "radiator"
+        section: "heating"
+        target: "heating"
+    NavItem:
+        icon: "toggle-switch"
+        section: "switches"
+        target: "switches"
+    NavItem:
+        icon: "battery"
+        section: "battery"
+        target: "battery"
+        tint: app.battery_color
+    Widget:
+    NavItem:
+        icon: "dots-horizontal"
+        section: "settings"
+        target: "settings"
+
+<Divider@Widget>:
+    size_hint_y: None
+    height: 1
+    canvas:
+        Color:
+            rgba: config.COLOR_DIVIDER
+        Rectangle:
+            pos: self.pos
+            size: self.size

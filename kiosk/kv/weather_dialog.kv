@@ -1,0 +1,303 @@
+#:import config kiosk.config
+
+<ForecastColumn@BoxLayout>:
+    top_text: ""
+    label: ""
+    condition: ""
+    icon: ""
+    night: False
+    temp: ""
+    precip: 0
+    precip_ratio: 0
+    precip_text: ""
+    wind: ""
+    wind_bearing: -1
+    orientation: "vertical"
+    size_hint_x: None
+    width: 76
+    Label:
+        text: root.top_text
+        font_size: "15sp"
+        size_hint_y: None
+        height: 22
+    Label:
+        text: root.label
+        font_size: "15sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 24
+    AnchorLayout:
+        size_hint_y: None
+        height: 68
+        WeatherIcon:
+            condition: root.condition
+            night: root.night
+            size: 64, 64
+    Label:
+        text: root.temp
+        font_size: "22sp"
+        size_hint_y: None
+        height: 36
+    # wiatr: strzałka w stronę, w którą wieje (bearing + 180) i prędkość
+    Icon:
+        icon: "arrow-up" if root.wind_bearing >= 0 else ""
+        font_size: "20sp"
+        color: config.COLOR_TEXT_DIM
+        pos_hint: {"center_x": 0.5}
+        canvas.before:
+            PushMatrix
+            Rotate:
+                angle: -(root.wind_bearing + 180)
+                origin: self.center
+        canvas.after:
+            PopMatrix
+    Label:
+        text: root.wind
+        font_size: "13sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 22
+    # słupek opadów (wysokość proporcjonalna do ilości) - wypełnia resztę wysokości okna
+    Widget:
+        size_hint_y: 1
+        canvas:
+            Color:
+                rgba: config.COLOR_DIVIDER
+            Rectangle:
+                pos: self.x + 6, self.y
+                size: self.width - 12, 1
+            Color:
+                rgba: config.COLOR_RAIN
+            RoundedRectangle:
+                pos: self.center_x - 12, self.y + 1
+                size: 24, (self.height - 4) * root.precip_ratio if root.precip > 0 else 0
+                radius: [4, 4, 0, 0]
+    Label:
+        text: root.precip_text
+        font_size: "14sp"
+        color: config.COLOR_RAIN if root.precip > 0 else config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 24
+
+<DetailRow@BoxLayout>:
+    icon: ""
+    label: ""
+    value: ""
+    size_hint_y: None
+    height: 40
+    spacing: 16
+    Icon:
+        icon: root.icon
+        font_size: "24sp"
+        color: config.COLOR_ACCENT
+        pos_hint: {"center_y": 0.5}
+    Label:
+        text: root.label
+        font_size: "17sp"
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    Label:
+        text: root.value
+        font_size: "17sp"
+        text_size: self.size
+        halign: "right"
+        valign: "middle"
+
+# Wskaźnik ładowania: obracający się łuk (kąt z WeatherDialog.spinner_angle)
+<LoadingSpinner@Widget>:
+    angle: 0
+    size_hint: None, None
+    size: 72, 72
+    canvas:
+        Color:
+            rgba: config.COLOR_DIVIDER
+        Line:
+            circle: self.center_x, self.center_y, 30
+            width: 3
+        Color:
+            rgba: config.COLOR_ACCENT
+        Line:
+            circle: self.center_x, self.center_y, 30, self.angle, self.angle + 100
+            width: 3
+
+# Szczegóły pogody na cały ekran; do czasu zbudowania prognozy - "Trwa ładowanie"
+<WeatherDialog>:
+    size_hint: 1, 1
+    overlay_color: 0, 0, 0, 0
+    background: ""
+    background_color: 0, 0, 0, 0
+    FloatLayout:
+        canvas.before:
+            Color:
+                rgba: config.COLOR_BG
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        BoxLayout:
+            orientation: "vertical"
+            pos_hint: {"x": 0, "y": 0}
+            padding: [32, 16, 32, 16]
+            spacing: 8
+            opacity: 0 if root.loading else 1
+
+            # --- pasek tytułu ---
+            BoxLayout:
+                size_hint_y: None
+                height: 56
+                spacing: 12
+                CloseButton:
+                    icon: "close"
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.dismiss()
+                BoxLayout:
+                    orientation: "vertical"
+                    padding: [0, 6]
+                    Label:
+                        text: "Pogoda"
+                        font_size: "14sp"
+                        color: config.COLOR_TEXT_DIM
+                        text_size: self.size
+                        halign: "left"
+                        valign: "bottom"
+                    Label:
+                        text: root.title
+                        font_size: "20sp"
+                        text_size: self.size
+                        halign: "left"
+                        valign: "top"
+
+            # --- aktualny stan i atrybuty obok siebie ---
+            BoxLayout:
+                size_hint_y: None
+                height: 140
+                spacing: 32
+                Card:
+                    spacing: 16
+                    WeatherIcon:
+                        condition: root.condition
+                        night: root.night
+                        size: 110, 110
+                        pos_hint: {"center_y": 0.5}
+                    BoxLayout:
+                        orientation: "vertical"
+                        padding: [0, 14]
+                        Label:
+                            text: root.condition_text
+                            font_size: "34sp"
+                            text_size: self.size
+                            halign: "left"
+                            valign: "bottom"
+                            shorten: True
+                        Label:
+                            text: root.updated
+                            font_size: "15sp"
+                            color: config.COLOR_TEXT_DIM
+                            text_size: self.size
+                            halign: "left"
+                            valign: "top"
+                    BoxLayout:
+                        orientation: "vertical"
+                        size_hint_x: None
+                        width: 200
+                        padding: [0, 14]
+                        Label:
+                            text: root.temperature
+                            font_size: "36sp"
+                            text_size: self.size
+                            halign: "right"
+                            valign: "bottom"
+                        Label:
+                            text: root.temp_range
+                            font_size: "15sp"
+                            color: config.COLOR_TEXT_DIM
+                            text_size: self.size
+                            halign: "right"
+                            valign: "top"
+                Card:
+                    orientation: "vertical"
+                    padding: [20, 10]
+                    spacing: 0
+                    DetailRow:
+                        icon: "gauge"
+                        label: "Ciśnienie atmosferyczne"
+                        value: root.pressure
+                    DetailRow:
+                        icon: "water"
+                        label: "Wilgotność powietrza"
+                        value: root.humidity
+                    DetailRow:
+                        icon: "weather-windy"
+                        label: "Prędkość wiatru"
+                        value: root.wind
+
+            # --- prognoza godzinowa ---
+            BoxLayout:
+                size_hint_y: None
+                height: 40
+                canvas.after:
+                    Color:
+                        rgba: config.COLOR_DIVIDER
+                    Rectangle:
+                        pos: self.pos
+                        size: self.width, 1
+                Label:
+                    text: "Prognoza godzinowa:"
+                    font_size: "18sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "middle"
+                Label:
+                    text: root.precip_total
+                    font_size: "16sp"
+                    color: config.COLOR_RAIN
+                    text_size: self.size
+                    halign: "right"
+                    valign: "middle"
+            ScrollView:
+                id: scroll
+                do_scroll_y: False
+                bar_width: 4
+                scroll_type: ["bars", "content"]
+                BoxLayout:
+                    id: strip
+                    size_hint_x: None
+                    width: self.minimum_width
+                    padding: [0, 10, 0, 14]
+
+            # --- źródło danych ---
+            Label:
+                text: root.attribution
+                font_size: "13sp"
+                color: config.COLOR_TEXT_DIM
+                size_hint_y: None
+                height: 32
+                text_size: self.width, None
+                halign: "center"
+                valign: "middle"
+
+        # --- trwa ładowanie (na środku ekranu, do czasu zbudowania prognozy) ---
+        BoxLayout:
+            orientation: "vertical"
+            size_hint: None, None
+            size: 360, 150
+            pos_hint: {"center_x": 0.5, "center_y": 0.5}
+            spacing: 14
+            opacity: 1 if root.loading else 0
+            AnchorLayout:
+                LoadingSpinner:
+                    angle: root.spinner_angle
+            Label:
+                text: "Trwa ładowanie…"
+                font_size: "22sp"
+                color: config.COLOR_TEXT_DIM
+                size_hint_y: None
+                height: 40
+        CloseButton:
+            icon: "close"
+            pos_hint: {"x": 0.025, "top": 0.98}
+            opacity: 1 if root.loading else 0
+            # po załadowaniu rozmiar 0 - nie przechwytuje dotyku przeznaczonego dla krzyżyka pod spodem
+            size: (190, 64) if root.loading else (0, 0)
+            on_release: root.dismiss()

@@ -1,0 +1,238 @@
+#:import config kiosk.config
+
+<RoundIconButton@ButtonBehavior+AnchorLayout>:
+    icon: ""
+    size_hint: None, None
+    size: 54, 54
+    canvas.before:
+        Color:
+            rgba: (config.COLOR_ACCENT_SOFT if self.state == "down" else config.COLOR_BG)
+        Ellipse:
+            pos: self.pos
+            size: self.size
+    Icon:
+        icon: root.icon
+        font_size: "28sp"
+        color: config.COLOR_TEXT
+
+<ThermostatCard@Card>:
+    name: ""
+    current: "—"
+    target: "—"
+    target_value: 0.0
+    step: 0.5
+    min_temp: 5.0
+    max_temp: 30.0
+    mode: ""
+    heating: False
+    info: ""
+    orientation: "vertical"
+    padding: [16, 12, 16, 14]
+    spacing: 2
+    canvas.after:
+        Color:
+            rgba: config.COLOR_HEAT if self.heating else (0, 0, 0, 0)
+        Line:
+            rounded_rectangle: (self.x + 1, self.y + 1, self.width - 2, self.height - 2, config.CARD_RADIUS)
+            width: 1.6
+    BoxLayout:
+        size_hint_y: None
+        height: 34
+        Label:
+            text: root.name
+            font_size: "20sp"
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
+            shorten: True
+        Icon:
+            icon: "radiator-off" if root.mode == "off" else "radiator"
+            font_size: "26sp"
+            color: config.COLOR_HEAT if root.heating else config.COLOR_TEXT_DIM
+            pos_hint: {"center_y": 0.5}
+    Label:
+        markup: True
+        text: "[size=44sp]{}[/size][size=20sp][color=#949ba8] °C[/color][/size]".format(root.current)
+        size_hint_y: None
+        height: 62
+        opacity: 0.5 if root.mode == "off" and root.current == "—" else 1
+    Label:
+        text: "w pomieszczeniu"
+        font_size: "13sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 18
+    BoxLayout:
+        size_hint_y: None
+        height: 66
+        padding: [0, 6]
+        opacity: 0.35 if root.mode in ("off", "unavailable", "") else 1
+        RoundIconButton:
+            id: minus
+            icon: "minus"
+            pos_hint: {"center_y": 0.5}
+        Label:
+            text: root.target + "°"
+            font_size: "30sp"
+            bold: True
+            color: config.COLOR_ACCENT
+        RoundIconButton:
+            id: plus
+            icon: "plus"
+            pos_hint: {"center_y": 0.5}
+    Label:
+        text: "zadana"
+        font_size: "13sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 18
+    Label:
+        text: root.info
+        font_size: "15sp"
+        color: config.COLOR_HEAT if root.heating else config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 26
+        shorten: True
+        text_size: self.width, None
+        halign: "center"
+    Widget:
+    # wł./wył. termostatu
+    PowerPill:
+        id: power
+        size_hint_y: None
+        height: 46
+        padding: [14, 0]
+        spacing: 8
+        canvas.before:
+            Color:
+                rgba: config.COLOR_ACCENT_SOFT if root.mode == "heat" else config.COLOR_BG
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [23]
+        Icon:
+            icon: "power"
+            font_size: "22sp"
+            color: config.COLOR_ACCENT if root.mode == "heat" else config.COLOR_TEXT_DIM
+            pos_hint: {"center_y": 0.5}
+        Label:
+            text: "Włączony" if root.mode == "heat" else ("Wyłączony" if root.mode == "off" else (root.mode or "—"))
+            font_size: "17sp"
+            color: config.COLOR_TEXT if root.mode == "heat" else config.COLOR_TEXT_DIM
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
+
+<PowerPill@ButtonBehavior+BoxLayout>:
+
+<SwitchTile@ButtonBehavior+BoxLayout>:
+    name: ""
+    icon: "heating-coil"
+    on: False
+    sub: "—"
+    readonly: False       # tylko podgląd stanu - dotyk niczego nie przełącza
+    orientation: "vertical"
+    padding: [10, 10]
+    canvas.before:
+        Color:
+            rgba: config.COLOR_HEAT_SOFT if self.on else config.COLOR_BG
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+        Color:
+            rgba: 1, 1, 1, (0.06 if self.state == "down" and not self.readonly else 0)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+    Widget:
+    Icon:
+        icon: root.icon
+        font_size: "32sp"
+        color: config.COLOR_HEAT if root.on else config.COLOR_TEXT_DIM
+        pos_hint: {"center_x": 0.5}
+    Label:
+        text: root.name
+        font_size: "17sp"
+        size_hint_y: None
+        height: 26
+        text_size: self.width, None
+        halign: "center"
+        shorten: True
+    Label:
+        text: root.sub
+        font_size: "13sp"
+        color: config.COLOR_HEAT if root.on else config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 20
+    Widget:
+
+<HeatingScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: 16
+        spacing: 12
+        BoxLayout:
+            size_hint_y: None
+            height: 48
+            spacing: 10
+            padding: [6, 0]
+            Icon:
+                icon: "radiator"
+                font_size: "28sp"
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: root.title
+                font_size: "24sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            Label:
+                text: root.status or root.summary
+                font_size: "20sp"
+                color: (1, 0.45, 0.4, 1) if root.status else config.COLOR_TEXT_DIM
+                text_size: self.size
+                halign: "right"
+                valign: "middle"
+                shorten: True
+
+        BoxLayout:
+            id: thermostats
+            size_hint_y: None
+            height: 340
+            spacing: 12
+
+        Card:
+            orientation: "vertical"
+            padding: [20, 12, 20, 16]
+            spacing: 10
+            BoxLayout:
+                size_hint_y: None
+                height: 36
+                Label:
+                    text: "Ogrzewanie podłogowe"
+                    font_size: "24sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "middle"
+                Label:
+                    text: root.timer_text
+                    font_size: "16sp"
+                    color: config.COLOR_TEXT_DIM
+                    text_size: self.size
+                    halign: "right"
+                    valign: "middle"
+            GridLayout:
+                id: zones
+                cols: 7
+                spacing: 10
+            BoxLayout:
+                size_hint_y: None
+                height: 104
+                spacing: 10
+                SwitchTile:
+                    id: main_switch
+                SwitchTile:
+                    id: pump_switch
+                    readonly: True

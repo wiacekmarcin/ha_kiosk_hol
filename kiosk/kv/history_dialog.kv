@@ -1,0 +1,128 @@
+#:import config kiosk.config
+
+<StatBox@BoxLayout>:
+    label: ""
+    value: ""
+    orientation: "vertical"
+    padding: [16, 8]
+    canvas.before:
+        Color:
+            rgba: config.COLOR_BG
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [10]
+    Label:
+        text: root.label
+        font_size: "14sp"
+        color: config.COLOR_TEXT_DIM
+        text_size: self.size
+        halign: "left"
+        valign: "bottom"
+    Label:
+        text: root.value
+        font_size: "19sp"
+        text_size: self.size
+        halign: "left"
+        valign: "top"
+
+<HistoryDialog>:
+    size_hint: 1, 1                     # cały ekran
+    overlay_color: config.COLOR_BG
+    background: ""
+    background_color: 0, 0, 0, 0
+    BoxLayout:
+        orientation: "vertical"
+        padding: [24, 16, 24, 20]
+        spacing: 12
+        canvas.before:
+            Color:
+                rgba: config.COLOR_CARD
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [24]
+
+        # --- pasek tytułu ---
+        BoxLayout:
+            size_hint_y: None
+            height: 56
+            spacing: 12
+            CloseButton:
+                icon: "close"
+                pos_hint: {"center_y": 0.5}
+                on_release: root.dismiss()
+            BoxLayout:
+                orientation: "vertical"
+                padding: [0, 6]
+                Label:
+                    text: "Ostatnie {} h".format(int(root.hours))
+                    font_size: "14sp"
+                    color: config.COLOR_TEXT_DIM
+                    text_size: self.size
+                    halign: "left"
+                    valign: "bottom"
+                Label:
+                    text: root.title
+                    font_size: "20sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "top"
+            Icon:
+                icon: root.icon
+                font_size: "30sp"
+                pos_hint: {"center_y": 0.5}
+
+        # --- zakładki (tylko gdy jest więcej niż jedna seria) ---
+        BoxLayout:
+            id: tabs
+            size_hint_y: None
+            height: 48 if len(root.series) > 1 else 0
+            opacity: 1 if len(root.series) > 1 else 0
+            canvas.before:
+                Color:
+                    rgba: config.COLOR_DIVIDER
+                Rectangle:
+                    pos: self.pos
+                    size: self.width, (1 if len(root.series) > 1 else 0)
+
+        # --- wartość bieżąca + statystyki ---
+        BoxLayout:
+            size_hint_y: None
+            height: 72
+            spacing: 12
+            Label:
+                text: root.current
+                font_size: "44sp"
+                size_hint_x: None
+                width: 240
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            StatBox:
+                label: "Minimum"
+                value: root.min_text
+            StatBox:
+                label: "Maksimum"
+                value: root.max_text
+            StatBox:
+                label: "Średnia"
+                value: root.avg_text
+
+        # --- wykres ---
+        FloatLayout:
+            LineChart:
+                id: chart
+                points: root.points
+                unit: root.unit
+                pos: self.parent.pos
+                size: self.parent.size
+            Label:
+                text: root.message
+                font_size: "18sp"
+                color: config.COLOR_TEXT_DIM
+                pos: self.parent.pos
+                size: self.parent.size
+                text_size: self.size
+                halign: "center"
+                valign: "middle"

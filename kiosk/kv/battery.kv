@@ -1,0 +1,74 @@
+#:import config kiosk.config
+
+<BatteryTile@Card>:
+    name: ""
+    level: ""
+    icon: "battery"
+    tint: 1, 1, 1, 1
+    padding: [16, 10]
+    spacing: 14
+    Icon:
+        icon: root.icon
+        font_size: "40sp"
+        color: root.tint
+        pos_hint: {"center_y": 0.5}
+    BoxLayout:
+        orientation: "vertical"
+        Label:
+            text: root.level
+            font_size: "26sp"
+            bold: True
+            color: root.tint
+            text_size: self.size
+            halign: "left"
+            valign: "bottom"
+        Label:
+            text: root.name
+            font_size: "16sp"
+            color: config.COLOR_TEXT_DIM
+            text_size: self.size
+            halign: "left"
+            valign: "top"
+            max_lines: 2
+            shorten: True
+            shorten_from: "right"
+
+<BatteryScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: 16
+        spacing: 12
+        BoxLayout:
+            size_hint_y: None
+            height: 48
+            spacing: 10
+            padding: [6, 0]
+            Icon:
+                icon: "battery"
+                font_size: "28sp"
+                color: app.battery_color
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: "Baterie"
+                font_size: "24sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            Label:
+                text: root.status or root.summary
+                font_size: "18sp"
+                color: (1, 0.45, 0.4, 1) if root.status else config.COLOR_TEXT_DIM
+                text_size: self.size
+                halign: "right"
+                valign: "middle"
+        ScrollView:
+            do_scroll_x: False
+            bar_width: 4
+            GridLayout:
+                id: grid
+                cols: 4
+                spacing: 12
+                size_hint_y: None
+                height: self.minimum_height
+                row_default_height: 96
+                row_force_default: True

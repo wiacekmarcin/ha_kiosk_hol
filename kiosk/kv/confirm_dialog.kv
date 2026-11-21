@@ -1,0 +1,67 @@
+#:import config kiosk.config
+
+<DialogButton@Button>:
+    font_size: "19sp"
+    background_normal: ""
+    background_down: ""
+    background_color: 0, 0, 0, 0
+    primary: False
+    color: (1, 1, 1, 1) if self.primary else config.COLOR_TEXT
+    canvas.before:
+        Color:
+            rgba: (config.COLOR_ACCENT if self.primary else config.COLOR_BG) if self.state == "normal" else config.COLOR_ACCENT_SOFT
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [24]
+
+<ConfirmDialog>:
+    size_hint: None, None
+    size: 560, 280
+    overlay_color: 0, 0, 0, 0.65
+    background: ""
+    background_color: 0, 0, 0, 0
+    BoxLayout:
+        orientation: "vertical"
+        padding: [28, 22, 28, 22]
+        spacing: 10
+        canvas.before:
+            Color:
+                rgba: config.COLOR_CARD
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [24]
+        BoxLayout:
+            size_hint_y: None
+            height: 40
+            spacing: 12
+            Icon:
+                icon: "alert"
+                font_size: "28sp"
+                color: config.COLOR_HEAT
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: root.title
+                font_size: "22sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+        Label:
+            text: root.message
+            font_size: "18sp"
+            color: config.COLOR_TEXT_DIM
+            text_size: self.width, None
+            halign: "left"
+            valign: "top"
+        BoxLayout:
+            size_hint_y: None
+            height: 52
+            spacing: 14
+            DialogButton:
+                text: "Anuluj"
+                on_release: root.dismiss()
+            DialogButton:
+                text: root.confirm_text
+                primary: True
+                on_release: root.confirm()

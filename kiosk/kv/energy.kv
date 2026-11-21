@@ -1,0 +1,106 @@
+#:import config kiosk.config
+
+# Pojedyncza wartość: ikona, liczba + jednostka, opis; dotknięcie -> wykres 24 h
+<EnergyMetric@ButtonBehavior+BoxLayout>:
+    icon: ""
+    value: "—"
+    unit: ""
+    label: ""
+    orientation: "vertical"
+    padding: [4, 6]
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, (0.05 if self.state == "down" else 0)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [10]
+    Icon:
+        icon: root.icon
+        font_size: "30sp"
+        color: config.COLOR_ACCENT
+        pos_hint: {"center_x": 0.5}
+    Label:
+        markup: True
+        text: "[size=28sp]{}[/size] [size=17sp][color=#949ba8]{}[/color][/size]".format(root.value, root.unit)
+        size_hint_y: None
+        height: 40
+    Label:
+        text: root.label
+        font_size: "15sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 22
+
+<PhaseCard@Card>:
+    title: ""
+    orientation: "vertical"
+    padding: [20, 14, 20, 12]
+    spacing: 4
+    Label:
+        text: root.title
+        font_size: "26sp"
+        size_hint_y: None
+        height: 40
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    GridLayout:
+        id: grid
+        cols: 2
+        spacing: 6
+
+<EnergyScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: 16
+        spacing: 12
+
+        # nagłówek + podsumowanie
+        BoxLayout:
+            size_hint_y: None
+            height: 48
+            spacing: 10
+            padding: [6, 0]
+            Icon:
+                icon: "home-lightning-bolt-outline"
+                font_size: "28sp"
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: root.title
+                font_size: "24sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            Label:
+                text: root.status or root.summary
+                font_size: "20sp"
+                color: (1, 0.45, 0.4, 1) if root.status else config.COLOR_TEXT_DIM
+                text_size: self.size
+                halign: "right"
+                valign: "middle"
+
+        # trzy fazy obok siebie
+        BoxLayout:
+            id: phases
+            size_hint_y: None
+            height: 290
+            spacing: 12
+
+        # całkowite zużycie
+        Card:
+            orientation: "vertical"
+            padding: [20, 14, 20, 12]
+            spacing: 4
+            Label:
+                text: "Całkowite zużycie"
+                font_size: "26sp"
+                size_hint_y: None
+                height: 40
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            GridLayout:
+                id: totals
+                cols: 3
+                spacing: 6

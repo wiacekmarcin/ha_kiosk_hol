@@ -1,0 +1,107 @@
+#:import config kiosk.config
+
+<RoomTile@ButtonBehavior+BoxLayout>:
+    name: ""
+    temp: "—"
+    temp_unit: "°C"
+    humidity: "—"
+    orientation: "vertical"
+    padding: [20, 14]
+    canvas.before:
+        Color:
+            rgba: config.COLOR_BG
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+    canvas.after:
+        Color:
+            rgba: 1, 1, 1, (0.05 if self.state == "down" else 0)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+    Label:
+        text: root.name
+        font_size: "20sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 30
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    Label:
+        markup: True
+        text: "[size=40sp]{}[/size] [size=20sp][color=#949ba8]{}[/color][/size]".format(root.temp, root.temp_unit)
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    BoxLayout:
+        size_hint_y: None
+        height: 30
+        spacing: 8
+        Icon:
+            icon: "water-percent"
+            font_size: "22sp"
+            color: config.COLOR_RAIN
+            pos_hint: {"center_y": 0.5}
+        Label:
+            text: root.humidity
+            font_size: "20sp"
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
+
+<RoomsDialog>:
+    size_hint: 1, 1                     # cały ekran
+    overlay_color: config.COLOR_BG
+    background: ""
+    background_color: 0, 0, 0, 0
+    BoxLayout:
+        orientation: "vertical"
+        padding: [24, 16, 24, 24]
+        spacing: 12
+        canvas.before:
+            Color:
+                rgba: config.COLOR_CARD
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [24]
+
+        BoxLayout:
+            size_hint_y: None
+            height: 56
+            spacing: 12
+            CloseButton:
+                icon: "close"
+                pos_hint: {"center_y": 0.5}
+                on_release: root.dismiss()
+            BoxLayout:
+                orientation: "vertical"
+                padding: [0, 6]
+                Label:
+                    text: "Mieszkanie"
+                    font_size: "14sp"
+                    color: config.COLOR_TEXT_DIM
+                    text_size: self.size
+                    halign: "left"
+                    valign: "bottom"
+                Label:
+                    text: "Temperatura i wilgotność"
+                    font_size: "20sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "top"
+            Label:
+                text: root.message
+                font_size: "15sp"
+                color: config.COLOR_TEXT_DIM
+                text_size: self.size
+                halign: "right"
+                valign: "middle"
+
+        GridLayout:
+            id: grid
+            cols: 4
+            spacing: 16

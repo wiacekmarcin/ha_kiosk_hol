@@ -1,0 +1,124 @@
+#:import config kiosk.config
+
+#:set SW_ON (0.98, 0.80, 0.30, 1)
+#:set SW_ON_SOFT (0.30, 0.25, 0.10, 1)
+
+<DeviceTile@ButtonBehavior+RelativeLayout>:
+    entity_id: ""
+    name: ""
+    icon: "power-socket-eu"
+    state_text: ""
+    power_text: ""          # moc z czujnika urządzenia, np. "67 W" (pusty = brak pomiaru)
+    protected: False
+    readonly: False
+    canvas.before:
+        Color:
+            rgba: SW_ON_SOFT if self.state_text == "on" else config.COLOR_CARD
+        RoundedRectangle:
+            pos: 0, 0
+            size: self.size
+            radius: [config.CARD_RADIUS]
+        Color:
+            rgba: 1, 1, 1, (0.06 if self.state == "down" and self.state_text in ("on", "off") and not self.readonly else 0)
+        RoundedRectangle:
+            pos: 0, 0
+            size: self.size
+            radius: [config.CARD_RADIUS]
+    BoxLayout:
+        orientation: "vertical"
+        padding: [10, 10]
+        opacity: 1 if root.state_text in ("on", "off") else 0.4
+        Widget:
+        Icon:
+            icon: root.icon
+            font_size: "32sp"
+            color: SW_ON if root.state_text == "on" else config.COLOR_TEXT_DIM
+            pos_hint: {"center_x": 0.5}
+        Label:
+            text: root.name
+            font_size: "17sp"
+            size_hint_y: None
+            height: 44
+            text_size: self.size
+            halign: "center"
+            valign: "middle"
+            max_lines: 2
+        Label:
+            # włączony z pomiarem: moc w W zamiast słowa "włączony"
+            text: (root.power_text if root.state_text == "on" and root.power_text else {"on": "włączony", "off": "wyłączony"}.get(root.state_text, "niedostępny")) + ("  ·  tylko podgląd" if root.readonly else "")
+            font_size: "16sp" if root.state_text == "on" and root.power_text else "13sp"
+            bold: root.state_text == "on" and bool(root.power_text)
+            color: SW_ON if root.state_text == "on" else config.COLOR_TEXT_DIM
+            size_hint_y: None
+            height: 22
+        Widget:
+    # kłódka = chroniony (potwierdzenie przed przełączeniem)
+    Icon:
+        icon: "lock" if root.protected else ""
+        font_size: "18sp"
+        color: config.COLOR_TEXT_DIM
+        pos: root.width - self.width - 10, root.height - self.height - 8
+
+<FilterChip@ButtonBehavior+Label>:
+    selected: False
+    font_size: "16sp"
+    size_hint_x: None
+    width: self.texture_size[0] + 36
+    color: (1, 1, 1, 1) if self.selected else config.COLOR_TEXT
+    canvas.before:
+        Color:
+            rgba: config.COLOR_ACCENT if self.selected else config.COLOR_CARD
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [18]
+
+<SwitchesScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: 16
+        spacing: 12
+        BoxLayout:
+            size_hint_y: None
+            height: 48
+            spacing: 10
+            padding: [6, 0]
+            Icon:
+                icon: "toggle-switch"
+                font_size: "28sp"
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: "Włączniki"
+                font_size: "24sp"
+                size_hint_x: None
+                width: 160
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            BoxLayout:
+                spacing: 10
+                padding: [0, 6]
+                BoxLayout:
+                    id: tabs
+                    size_hint_x: None
+                    width: self.minimum_width
+                    spacing: 10
+                Label:
+                    text: root.status
+                    font_size: "15sp"
+                    color: 1, 0.45, 0.4, 1
+                    text_size: self.size
+                    halign: "right"
+                    valign: "middle"
+                    shorten: True
+        ScrollView:
+            do_scroll_x: False
+            bar_width: 4
+            GridLayout:
+                id: grid
+                cols: 6
+                spacing: 10
+                size_hint_y: None
+                height: self.minimum_height
+                row_default_height: 118
+                row_force_default: True

@@ -1,0 +1,385 @@
+#:import config kiosk.config
+
+<SettingsInput@TextInput>:
+    multiline: False
+    write_tab: False
+    font_size: "20sp"
+    size_hint_y: None
+    height: 56
+    padding: [16, (self.height - self.line_height) / 2]
+    background_normal: ""
+    background_active: ""
+    background_color: config.COLOR_BG
+    foreground_color: config.COLOR_TEXT
+    hint_text_color: config.COLOR_TEXT_DIM
+    cursor_color: config.COLOR_ACCENT
+    selection_color: 0.012, 0.663, 0.957, 0.35
+    canvas.after:
+        Color:
+            rgba: config.COLOR_ACCENT if self.focus else config.COLOR_DIVIDER
+        Line:
+            rounded_rectangle: self.x, self.y, self.width, self.height, 10
+            width: 1.2
+
+<SettingsCaption@Label>:
+    font_size: "17sp"
+    color: config.COLOR_TEXT_DIM
+    size_hint_y: None
+    height: 26
+    text_size: self.size
+    halign: "left"
+    valign: "bottom"
+
+# Przycisk z ikoną i tekstem
+<SettingsButton@ButtonBehavior+BoxLayout>:
+    icon: ""
+    text: ""
+    primary: False
+    size_hint: None, None
+    height: 56
+    width: self.minimum_width
+    padding: [20, 0, 24, 0]
+    spacing: 10
+    opacity: 0.5 if self.disabled else 1
+    canvas.before:
+        Color:
+            rgba: (config.COLOR_ACCENT if self.primary else config.COLOR_ACCENT_SOFT) if self.state == "normal" else config.COLOR_DIVIDER
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [28]
+    Icon:
+        icon: root.icon
+        font_size: "24sp"
+        color: (1, 1, 1, 1) if root.primary else config.COLOR_ACCENT
+        pos_hint: {"center_y": 0.5}
+    FitLabel:
+        text: root.text
+        font_size: "19sp"
+        color: (1, 1, 1, 1) if root.primary else config.COLOR_TEXT
+
+# Suwak 0-100 w kolorach aplikacji (jasność, głośność)
+<SettingsSlider@Slider>:
+    min: 0
+    max: 100
+    step: 1
+    cursor_size: 32, 32
+    value_track: True
+    value_track_color: config.COLOR_ACCENT
+    value_track_width: 4
+    background_width: 32
+
+<SettingsScreen>:
+    BoxLayout:
+        orientation: "vertical"
+        padding: [32, 24, 32, 24]
+        spacing: 16
+        BoxLayout:
+            size_hint_y: None
+            height: 48
+            spacing: 14
+            Icon:
+                icon: "lan-connect"
+                font_size: "32sp"
+                color: config.COLOR_ACCENT
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: "Ustawienia"
+                font_size: "28sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            # ADB przez sieć (stan obok przycisku) i zamknięcie aplikacji
+            Label:
+                text: root.adb_text
+                font_size: "15sp"
+                color: config.COLOR_OK if root.adb_on else config.COLOR_TEXT_DIM
+                size_hint_x: None
+                width: 230
+                text_size: self.size
+                halign: "right"
+                valign: "middle"
+            SettingsButton:
+                icon: "lan-connect"
+                text: "Włącz ADB przez sieć"
+                height: 48
+                pos_hint: {"center_y": 0.5}
+                on_release: root.enable_adb()
+            SettingsButton:
+                icon: "power"
+                text: "Zamknij aplikację"
+                height: 48
+                pos_hint: {"center_y": 0.5}
+                on_release: root.close_app()
+
+        Card:
+            orientation: "vertical"
+            size_hint_y: None
+            height: self.minimum_height
+            padding: [28, 18, 28, 24]
+            spacing: 8
+
+            SettingsCaption:
+                text: "Adres Home Assistant"
+            SettingsInput:
+                id: url
+                hint_text: "https://xxxxxxxx.ui.nabu.casa  albo  http://192.168.1.10:8123"
+                input_type: "url"
+                on_text: root.dirty = True
+
+            Widget:
+                size_hint_y: None
+                height: 6
+            SettingsCaption:
+                text: "Token dostępu (długoterminowy)"
+            BoxLayout:
+                size_hint_y: None
+                height: 56
+                spacing: 12
+                SettingsInput:
+                    id: token
+                    hint_text: "wklej, wpisz albo zeskanuj kod QR"
+                    password: not root.show_token
+                    password_mask: "•"
+                    on_text: root.dirty = True
+                IconButton:
+                    icon: "eye-off" if root.show_token else "eye"
+                    size: 56, 56
+                    color: config.COLOR_TEXT_DIM
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.show_token = not root.show_token
+                SettingsButton:
+                    icon: "qrcode-scan"
+                    text: "Skanuj kod QR"
+                    on_release: root.scan_qr()
+            Label:
+                text: "Token: HA › profil użytkownika › Bezpieczeństwo › Tokeny długoterminowe › Utwórz token. Kod QR może zawierać sam token, adres albo JSON {\"url\": …, \"token\": …}."
+                font_size: "15sp"
+                color: config.COLOR_TEXT_DIM
+                size_hint_y: None
+                height: self.texture_size[1] + 6
+                text_size: self.width, None
+                halign: "left"
+
+            Widget:
+                size_hint_y: None
+                height: 10
+            BoxLayout:
+                size_hint_y: None
+                height: 56
+                spacing: 14
+                SettingsButton:
+                    icon: "lan-connect"
+                    text: "Sprawdź połączenie"
+                    disabled: root.busy
+                    on_release: root.test_connection()
+                SettingsButton:
+                    icon: "content-save"
+                    text: "Zapisz i połącz"
+                    primary: True
+                    disabled: root.busy
+                    on_release: root.save()
+                Widget:
+
+        # wynik sprawdzenia / zapisu
+        BoxLayout:
+            size_hint_y: None
+            height: 40
+            spacing: 10
+            opacity: 1 if root.result else 0
+            Icon:
+                icon: "check-circle" if root.result_ok else "alert-circle"
+                font_size: "26sp"
+                color: (0.30, 0.80, 0.40, 1) if root.result_ok else config.COLOR_HEAT
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: root.result
+                font_size: "18sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+                shorten: True
+                shorten_from: "right"
+
+
+        # ekran: wygaszanie po bezczynności i budzenie ruchem
+        Card:
+            orientation: "vertical"
+            size_hint_y: None
+            height: self.minimum_height
+            padding: [28, 12, 28, 12]
+            spacing: 4
+            BoxLayout:
+                size_hint_y: None
+                height: 60
+                spacing: 14
+                Icon:
+                    icon: "monitor"
+                    color: config.COLOR_ACCENT
+                    pos_hint: {"center_y": 0.5}
+                Label:
+                    text: "Wyłącz ekran po bezczynności"
+                    font_size: "19sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "middle"
+                RoundIconButton:
+                    icon: "minus"
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.change_minutes(-1)
+                Label:
+                    text: root.minutes_text
+                    font_size: "21sp"
+                    size_hint_x: None
+                    width: 110
+                RoundIconButton:
+                    icon: "plus"
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.change_minutes(+1)
+                Widget:
+                    size_hint_x: None
+                    width: 12
+                SettingsButton:
+                    icon: "monitor"
+                    text: "Wygaś teraz"
+                    pos_hint: {"center_y": 0.5}
+                    on_release: app.screensaver.blank()
+            Divider:
+            BoxLayout:
+                size_hint_y: None
+                height: 60
+                spacing: 14
+                Icon:
+                    icon: "motion-sensor"
+                    color: config.COLOR_ACCENT
+                    pos_hint: {"center_y": 0.5}
+                Label:
+                    text: "Włącz ekran po wykryciu ruchu (przednia kamera) i pokaż stronę startową"
+                    font_size: "19sp"
+                    text_size: self.size
+                    halign: "left"
+                    valign: "middle"
+                IconButton:
+                    icon: "toggle-switch" if root.motion_wake else "toggle-switch-off"
+                    font_size: "52sp"
+                    size: 76, 56
+                    color: config.COLOR_ACCENT if root.motion_wake else config.COLOR_TEXT_DIM
+                    pos_hint: {"center_y": 0.5}
+                    on_release: root.toggle_motion()
+            Divider:
+            # jasność i głośność tabletu - te same wartości co pomocnicy w HA;
+            # przycisk "A" = automatyczna jasność, ręczne przesunięcie suwaka ją wyłącza
+            # (input_number.tablet_kiosk_jasnosc / _glosnosc), zmiana działa od razu
+            BoxLayout:
+                size_hint_y: None
+                height: 60
+                spacing: 14
+                Icon:
+                    icon: "brightness-6"
+                    color: config.COLOR_ACCENT
+                    pos_hint: {"center_y": 0.5}
+                FitLabel:
+                    text: "Jasność" + (" ({})".format(app.tablet_lux_text) if app.tablet_lux_text else "")
+                    font_size: "19sp"
+                # automatyczna jasność wg czujnika światła (input_boolean.tablet_kiosk_jasnosc_auto)
+                IconButton:
+                    icon: "brightness-auto"
+                    font_size: "34sp"
+                    size: 48, 48
+                    color: config.COLOR_ACCENT if app.tablet_auto_brightness else config.COLOR_TEXT_DIM
+                    opacity: 1 if app.tablet_lux_text else 0.3
+                    disabled: not app.tablet_lux_text
+                    pos_hint: {"center_y": 0.5}
+                    on_release: app.set_auto_brightness(not app.tablet_auto_brightness)
+                SettingsSlider:
+                    min: 1
+                    value: app.tablet_brightness
+                    on_value: app.set_tablet("brightness", self.value)
+                Label:
+                    text: "{} %".format(int(app.tablet_brightness))
+                    font_size: "19sp"
+                    size_hint_x: None
+                    width: 70
+                Widget:
+                    size_hint_x: None
+                    width: 12
+                Icon:
+                    icon: "volume-high"
+                    color: config.COLOR_ACCENT
+                    pos_hint: {"center_y": 0.5}
+                FitLabel:
+                    text: "Głośność"
+                    font_size: "19sp"
+                SettingsSlider:
+                    value: app.tablet_volume
+                    on_value: app.set_tablet("volume", self.value)
+                Label:
+                    text: "{} %".format(int(app.tablet_volume))
+                    font_size: "19sp"
+                    size_hint_x: None
+                    width: 70
+
+        Label:
+            text: root.info
+            font_size: "15sp"
+            color: config.COLOR_TEXT_DIM
+            size_hint_y: None
+            height: self.texture_size[1]
+            text_size: self.width, None
+            halign: "left"
+        Widget:
+
+<QRScannerDialog>:
+    size_hint: 1, 1                     # cały ekran
+    overlay_color: config.COLOR_BG
+    background: ""
+    background_color: 0, 0, 0, 0
+    BoxLayout:
+        orientation: "vertical"
+        padding: [24, 18, 24, 22]
+        spacing: 12
+        canvas.before:
+            Color:
+                rgba: config.COLOR_CARD
+            RoundedRectangle:
+                pos: self.pos
+                size: self.size
+                radius: [24]
+        BoxLayout:
+            size_hint_y: None
+            height: 44
+            spacing: 12
+            Icon:
+                icon: "qrcode-scan"
+                font_size: "28sp"
+                color: config.COLOR_ACCENT
+                pos_hint: {"center_y": 0.5}
+            Label:
+                text: "Skanowanie kodu QR"
+                font_size: "22sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+            CloseButton:
+                icon: "close"
+                pos_hint: {"center_y": 0.5}
+                on_release: root.dismiss()
+        # podgląd z kamery (Camera dodawana w kodzie)
+        FloatLayout:
+            id: preview
+            canvas.before:
+                Color:
+                    rgba: config.COLOR_BG
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [12]
+        Label:
+            text: root.message
+            font_size: "18sp"
+            color: config.COLOR_TEXT_DIM
+            size_hint_y: None
+            height: 52
+            text_size: self.size
+            halign: "center"
+            valign: "middle"

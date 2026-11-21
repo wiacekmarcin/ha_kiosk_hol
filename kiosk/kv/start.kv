@@ -1,0 +1,444 @@
+#:import config kiosk.config
+#:import icons kiosk.icons
+#:import pl kiosk.pl
+#:import wicons kiosk.weather_icons
+
+# ---------- elementy pomocnicze ----------
+
+# Kolorowa ikona pogody (Meteocons): WeatherIcon(condition="rainy", night=False)
+<WeatherIcon@Image>:
+    condition: ""
+    night: False
+    source: wicons.path(self.condition, self.night)
+    size_hint: None, None
+    fit_mode: "contain"
+    mipmap: True
+
+# Karta reagująca na dotyk - lekkie podświetlenie przy wciśnięciu
+<TouchCard@ButtonBehavior+Card>:
+    canvas.after:
+        Color:
+            rgba: 1, 1, 1, (0.05 if self.state == "down" else 0)
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [config.CARD_RADIUS]
+
+<WeatherCard@TouchCard>:
+
+<ForecastDay@BoxLayout>:
+    day: ""
+    condition: ""
+    icon: ""
+    high: ""
+    low: ""
+    drops: 0
+    orientation: "vertical"
+    spacing: 2
+    Label:
+        text: root.day
+        font_size: "18sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 26
+    AnchorLayout:
+        WeatherIcon:
+            condition: root.condition
+            size: 66, 66
+    Label:
+        text: root.high
+        font_size: "24sp"
+        size_hint_y: None
+        height: 32
+    Label:
+        text: root.low
+        font_size: "18sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 24
+    # intensywność opadów: 1-3 krople (puste = bez opadów)
+    Label:
+        text: icons.glyph("water") * int(root.drops)
+        font_name: icons.FONT_NAME
+        font_size: "22sp"
+        color: config.COLOR_RAIN
+        size_hint_y: None
+        height: 28
+
+# Kafelek czujnika: temperatura + wilgotność; "more" = trzy kropki (np. lista pomieszczeń)
+<SensorTile@TouchCard>:
+    name: ""
+    value: ""
+    unit: ""
+    icon: ""
+    humidity: ""
+    more: False
+    orientation: "vertical"
+    padding: [20, 12, 12, 8]
+    spacing: 0
+    BoxLayout:
+        size_hint_y: None
+        height: 32
+        padding: [0, 0, 8, 0]
+        Label:
+            text: root.name
+            font_size: "20sp"
+            color: config.COLOR_TEXT_DIM
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
+        Icon:
+            icon: root.icon
+            pos_hint: {"center_y": 0.5}
+    Label:
+        markup: True
+        text: "[size=36sp]{}[/size] [size=20sp][color=#949ba8]{}[/color][/size]".format(root.value, root.unit)
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    BoxLayout:
+        size_hint_y: None
+        height: 40
+        spacing: 8
+        Icon:
+            icon: "water-percent" if root.humidity else ""
+            font_size: "22sp"
+            color: config.COLOR_RAIN
+            pos_hint: {"center_y": 0.5}
+        Label:
+            text: root.humidity
+            font_size: "20sp"
+            text_size: self.size
+            halign: "left"
+            valign: "middle"
+        MoreDots:
+            id: more
+            opacity: 1 if root.more else 0
+            disabled: not root.more
+            pos_hint: {"center_y": 0.5}
+
+# Wschód i zachód słońca w jednym kafelku
+<SunTile@Card>:
+    rising: "--:--"
+    setting: "--:--"
+    orientation: "vertical"
+    padding: [20, 12]
+    spacing: 0
+    Label:
+        text: "Słońce"
+        font_size: "20sp"
+        color: config.COLOR_TEXT_DIM
+        size_hint_y: None
+        height: 32
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    SunRow:
+        icon: "weather-sunset-up"
+        label: "Wschód"
+        time: root.rising
+    SunRow:
+        icon: "weather-sunset-down"
+        label: "Zachód"
+        time: root.setting
+
+<SunRow@BoxLayout>:
+    icon: ""
+    label: ""
+    time: ""
+    spacing: 12
+    Icon:
+        icon: root.icon
+        font_size: "28sp"
+        color: config.COLOR_SUN_ICON
+        pos_hint: {"center_y": 0.5}
+    Label:
+        text: root.label
+        font_size: "20sp"
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    Label:
+        text: root.time
+        font_size: "26sp"
+        bold: True
+        text_size: self.size
+        halign: "right"
+        valign: "middle"
+
+<CalendarDayHeader@BoxLayout>:
+    day: ""
+    date_text: ""
+    size_hint_y: None
+    height: 52
+    padding: [12, 0]
+    Label:
+        text: root.day
+        font_size: "20sp"
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    Label:
+        text: root.date_text
+        font_size: "20sp"
+        text_size: self.size
+        halign: "right"
+        valign: "middle"
+
+<CalendarEvent@BoxLayout>:
+    time_text: ""
+    title: ""
+    size_hint_y: None
+    height: 44
+    padding: [12, 0]
+    spacing: 16
+    Label:
+        text: root.time_text
+        font_size: "17sp"
+        size_hint_x: None
+        width: 130
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+    Widget:
+        size_hint_x: None
+        width: 12
+        canvas:
+            Color:
+                rgba: config.COLOR_EVENT
+            Ellipse:
+                pos: self.center_x - 6, self.center_y - 6
+                size: 12, 12
+    Label:
+        text: root.title
+        font_size: "17sp"
+        text_size: self.size
+        halign: "left"
+        valign: "middle"
+        shorten: True
+
+<CalendarEmpty@Label>:
+    text: "Brak wydarzeń w tym tygodniu"
+    color: config.COLOR_TEXT_DIM
+    font_size: "18sp"
+    size_hint_y: None
+    height: 80
+
+# Przełącznik widoku kalendarza (miesiąc / tydzień / lista)
+<ViewToggle@ButtonBehavior+Icon>:
+    view: ""
+    current: ""
+    first: False
+    last: False
+    size: 54, 38
+    font_size: "22sp"
+    text_size: self.size
+    halign: "center"
+    valign: "middle"
+    color: (1, 1, 1, 1) if self.view == self.current else config.COLOR_ACCENT
+    canvas.before:
+        Color:
+            rgba: config.COLOR_ACCENT if self.view == self.current else config.COLOR_ACCENT_SOFT
+        RoundedRectangle:
+            pos: self.pos
+            size: self.size
+            radius: [19 if self.first else 0, 19 if self.last else 0, 19 if self.last else 0, 19 if self.first else 0]
+
+# ---------- ekran ----------
+
+<StartScreen>:
+    BoxLayout:
+        padding: 16
+        spacing: 16
+
+        # ===== lewa kolumna =====
+        BoxLayout:
+            orientation: "vertical"
+            spacing: 12
+
+            # Zegar - dotknięcie otwiera "Kartkę z kalendarza"
+            TouchCard:
+                on_release: app.open_kartka()
+                size_hint_y: None
+                height: 132
+                padding: [14, 8, 14, 8]
+                spacing: 0
+                # bateria tabletu (ukryta, gdy urządzenie nie ma baterii - np. komputer)
+                BoxLayout:
+                    orientation: "vertical"
+                    size_hint_x: None
+                    width: 56
+                    padding: [0, 16, 0, 12]
+                    spacing: 2
+                    opacity: 1 if app.tablet_battery_text else 0
+                    Icon:
+                        icon: app.tablet_battery_icon
+                        font_size: "34sp"
+                        color: app.tablet_battery_color
+                        pos_hint: {"center_x": 0.5}
+                    Label:
+                        text: app.tablet_battery_text
+                        markup: True
+                        font_size: "15sp"
+                        color: config.COLOR_TEXT_DIM
+                        size_hint_y: None
+                        height: 22
+                BoxLayout:
+                    orientation: "vertical"
+                    Label:
+                        text: root.time_text
+                        markup: True
+                        font_size: "64sp"
+                        bold: True
+                    Label:
+                        text: root.date_text
+                        font_size: "24sp"
+                        size_hint_y: None
+                        height: 36
+                # stan połączeń: Wi-Fi (zielona = jest sieć), pod nią Home Assistant
+                BoxLayout:
+                    orientation: "vertical"
+                    size_hint_x: None
+                    width: 40
+                    padding: [0, 14]
+                    spacing: 12
+                    Icon:
+                        icon: app.wifi_icon
+                        font_size: "30sp"
+                        color: config.COLOR_OK if app.wifi_ok else config.COLOR_ERROR
+                        pos_hint: {"center_x": 0.5}
+                    Icon:
+                        icon: "home-assistant"
+                        font_size: "30sp"
+                        color: {"ok": config.COLOR_OK, "error": config.COLOR_ERROR}.get(app.ha_state, config.COLOR_TEXT_DIM)
+                        pos_hint: {"center_x": 0.5}
+
+            # Pogoda - dotknięcie otwiera szczegóły
+            WeatherCard:
+                on_release: root.open_weather_details()
+                orientation: "vertical"
+                size_hint_y: None
+                height: 324
+                spacing: 4
+                BoxLayout:
+                    size_hint_y: None
+                    height: 96
+                    spacing: 16
+                    WeatherIcon:
+                        condition: root.weather_condition
+                        night: root.weather_night
+                        size: 100, 100
+                        pos_hint: {"center_y": 0.5}
+                    BoxLayout:
+                        orientation: "vertical"
+                        padding: [0, 10]
+                        Label:
+                            text: root.weather_text
+                            font_size: "36sp"
+                            shorten: True
+                            shorten_from: "right"
+                            max_lines: 1
+                            text_size: self.size
+                            halign: "left"
+                            valign: "bottom"
+                        Label:
+                            text: root.weather_name
+                            font_size: "19sp"
+                            color: config.COLOR_TEXT_DIM
+                            text_size: self.size
+                            halign: "left"
+                            valign: "top"
+                    BoxLayout:
+                        orientation: "vertical"
+                        size_hint_x: None
+                        width: 165
+                        padding: [0, 10]
+                        Label:
+                            text: root.weather_temp
+                            font_size: "38sp"
+                            text_size: self.size
+                            halign: "right"
+                            valign: "bottom"
+                        Label:
+                            text: root.weather_range
+                            font_size: "19sp"
+                            color: config.COLOR_TEXT_DIM
+                            text_size: self.size
+                            halign: "right"
+                            valign: "top"
+                BoxLayout:
+                    id: forecast
+
+            # Czujniki + słońce 2x2 (wypełniane w StartScreen.on_sensors)
+            GridLayout:
+                id: sensors
+                cols: 2
+                spacing: 12
+                size_hint_y: None
+                height: 2 * 132 + 12
+
+            Widget:
+
+        # ===== prawa kolumna: kartka z kalendarza =====
+        # górna część (dzień tygodnia, liczba, miesiąc) -> tabela miesiąca,
+        # dolna część (święta, wydarzenia, imieniny, przysłowia) -> lista wydarzeń
+        BoxLayout:
+            orientation: "vertical"
+            spacing: 0
+            canvas.before:
+                Color:
+                    rgba: config.COLOR_CARD
+                RoundedRectangle:
+                    pos: self.pos
+                    size: self.size
+                    radius: [config.CARD_RADIUS]
+            # pasek u góry kartki (jak w zrywanym kalendarzu)
+            Widget:
+                size_hint_y: None
+                height: 14
+                canvas:
+                    Color:
+                        rgba: config.COLOR_ERROR if root.kartka_red else config.COLOR_ACCENT
+                    RoundedRectangle:
+                        pos: self.pos
+                        size: self.size
+                        radius: [config.CARD_RADIUS, config.CARD_RADIUS, 0, 0]
+            TouchBox:
+                orientation: "vertical"
+                size_hint_y: None
+                height: 290
+                padding: [16, 10, 16, 6]
+                on_release: root.open_month()
+                Label:
+                    text: root.kartka_weekday
+                    font_size: "30sp"
+                    color: config.COLOR_ERROR if root.kartka_red else config.COLOR_TEXT
+                    size_hint_y: None
+                    height: 44
+                Label:
+                    text: root.kartka_day
+                    font_size: "150sp"
+                    bold: True
+                    color: config.COLOR_ERROR if root.kartka_red else config.COLOR_TEXT
+                Label:
+                    text: root.kartka_month
+                    font_size: "26sp"
+                    color: config.COLOR_TEXT_DIM
+                    size_hint_y: None
+                    height: 38
+            Divider:
+            TouchBox:
+                on_release: root.open_events()
+                padding: [22, 14, 18, 14]
+                # przycinanie tekstu do kafelka (dużo świąt / przysłów)
+                StencilView:
+                    Label:
+                        pos: self.parent.pos
+                        size: self.parent.size
+                        text: root.kartka_text
+                        markup: True
+                        font_size: "20sp"
+                        line_height: 1.1
+                        text_size: self.size
+                        halign: "left"
+                        valign: "top"
