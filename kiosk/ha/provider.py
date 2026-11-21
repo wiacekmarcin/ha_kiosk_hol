@@ -173,6 +173,13 @@ class HAProvider:
             "rising": parse_dt(attrs["next_rising"]).strftime("%H:%M"),
             "setting": parse_dt(attrs["next_setting"]).strftime("%H:%M"),
         }
+        if "location" not in self.data:
+            # położenie domu z konfiguracji HA - do wykresu wschodów i zachodów w roku
+            cfg = self.client._request("GET", "/api/config")
+            if cfg.get("latitude") is not None and cfg.get("longitude") is not None:
+                self.data["location"] = {"latitude": float(cfg["latitude"]),
+                                         "longitude": float(cfg["longitude"]),
+                                         "elevation": float(cfg.get("elevation") or 0)}
 
     def _events(self):
         today = datetime.combine(date.today(), datetime.min.time()).astimezone()

@@ -16,6 +16,7 @@ from kiosk.widgets.history_dialog import HistoryDialog, sensor_series
 from kiosk.widgets.rooms_dialog import RoomsDialog
 from kiosk.widgets.weather_dialog import WeatherDialog
 from kiosk.widgets.calendar_dialogs import EventsDialog, MonthDialog
+from kiosk.widgets.sun_dialog import SunDialog
 
 DIM = "#949ba8"
 RED = "#f5544d"
@@ -98,6 +99,7 @@ class StartScreen(Screen):
     weather_condition = StringProperty("")
     weather_night = BooleanProperty(False)
     sensors = ListProperty([])
+    location = DictProperty({})              # położenie domu z HA (wykres słońca w roku)
     sunrise = StringProperty("--:--")
     sunset = StringProperty("--:--")
 
@@ -153,6 +155,8 @@ class StartScreen(Screen):
             self.sunset = data["sun"]["setting"]
         if "events" in data:
             self.events = data["events"]
+        if "location" in data:
+            self.location = data["location"]
 
     def on_weather(self, _inst, w):
         self.weather_text = two_lines(pl.WEATHER.get(w.get("condition"), w.get("condition", "")))
@@ -211,9 +215,14 @@ class StartScreen(Screen):
             self._sun = make("SunTile", rising=self.sunrise, setting=self.sunset)
             self.bind(sunrise=lambda _i, v: setattr(self._sun, "rising", v),
                       sunset=lambda _i, v: setattr(self._sun, "setting", v))
+            self._sun.bind(on_release=lambda _t: self.open_sun())
         if self._sun.parent:
             self._sun.parent.remove_widget(self._sun)
         return self._sun
+
+    def open_sun(self):
+        """Kafelek Słońce -> wykres wschodów i zachodów w roku (położenie domu z HA)."""
+        SunDialog(location=self.location or None).open()
 
     def on_events(self, *_):
         self._render_calendar()
