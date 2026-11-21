@@ -449,5 +449,6 @@ class KioskApp(App):
             return True                         # nigdy nie zamykaj aplikacji
         return False
 
+    def go_to(self, screen_name: str):
         self.sm.current = screen_name
         self.section = SECTIONS.get(screen_name, screen_name)
