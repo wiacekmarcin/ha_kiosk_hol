@@ -1,6 +1,6 @@
 # HA Kiosk - podsumowanie prac
 
-Stan na: 21 listopada 2026, wersja aplikacji **0.17**.
+Stan na: 22 listopada 2026, wersja aplikacji **0.22**.
 Repozytorium: https://github.com/wiacekmarcin/ha_kiosk_hol
 
 Dokument podsumowuje całą rozmowę: od pierwszego połączenia z Home Assistantem,
@@ -121,6 +121,10 @@ Identyfikatory można zmienić w `settings.json` w sekcji `entities.tablet`.
 | 0.15 | 21 XI | słońce i Księżyc na kartce, okno faz Księżyca, zegar bez daty, powrót na start tylko po wygaszeniu ekranu |
 | 0.16 | 21 XI | poprawka awarii po wybudzeniu ekranu i w menu (przywrócona metoda `go_to`) |
 | 0.17 | 21 XI | moc ładowania obok błyskawicy; automatyzacja ładowarki w HA |
+| 0.18 | 21 XI | ogłaszanie pełnych godzin: gong i "Jest godzina ..." (pn-pt 7-22, sb-nd 9-22), przełącznik w Ustawieniach |
+| 0.19 | 21 XI | ikona wyświetlacza w menu bocznym - natychmiastowe wygaszenie ekranu |
+| 0.20-0.21 | 22 XI | wersje diagnostyczne awarii JNI (test uruchamiany plikiem-znacznikiem) |
+| 0.22 | 22 XI | poprawka awarii JNI przy zmianie jasności; strażnik ponownego uruchomienia co 15 min |
 
 ## 6. Budowanie i instalacja
 
@@ -151,6 +155,10 @@ Identyfikatory można zmienić w `settings.json` w sekcji `entities.tablet`.
 | adres Nabu Casa: błędy SSL przy kalendarzach | adres HA w sieci lokalnej |
 | miesiąc przeskakiwał o 2 | wyłączony dostawca myszy Kivy na Androidzie i debounce strzałek |
 | awaria po wybudzeniu ekranu (0.15) | przywrócona metoda `go_to` usunięta przy zmianie powrotu na start |
+| awaria po kilkunastu godzinach: "JNI local reference table overflow (max=512)" (22 XI) | test na tablecie (`kiosk/jni_probe.py`) wskazał zmianę jasności okna: `run_on_ui_thread` tworzył przy każdym wywołaniu nowy obiekt Javy; teraz jeden stały `Runnable` (1500 zmian bez błędu) |
+| awaria czyści ustawienie ekranu głównego, kiosk nie wraca sam | strażnik: alarm systemowy co 15 min uruchamia aktywność kiosku |
+| VS Code staje w trakcie budowania | wykluczenie `.buildozer` (~75 tys. plików) ze śledzenia w `KreionWSL.code-workspace` |
+| AAPT2 "Daemon startup failed" po restarcie WSL | zatrzymanie starego procesu Gradle (`pkill -f GradleDaemon`) i ponowne budowanie |
 
 ## 8. Do sprawdzenia i otwarte punkty
 

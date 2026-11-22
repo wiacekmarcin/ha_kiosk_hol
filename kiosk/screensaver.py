@@ -199,23 +199,51 @@ class ScreenSaver:
             self.wake(f"ruch {ratio:.0%}")
 
 
+# Jeden obiekt Runnable na całe życie aplikacji. Wcześniej każda zmiana jasności
+# (run_on_ui_thread) tworzyła nowy obiekt pośredni Javy i zostawiała na głównym
+# wątku odwołanie JNI; po ~500 zmianach (automatyczna jasność, wygaszanie) Android
+# zamykał aplikację: "local reference table overflow (max=512)".
+_brightness_runner = None
+
+
+def _runner():
+    global _brightness_runner
+    if _brightness_runner is None:
+        from jnius import PythonJavaClass, autoclass, java_method
+
+        class BrightnessRunnable(PythonJavaClass):
+            __javainterfaces__ = ["java/lang/Runnable"]
+            __javacontext__ = "app"
+
+            def __init__(self):
+                super().__init__()
+                self.value = None
+                self.activity = autoclass("org.kivy.android.PythonActivity").mActivity
+                self.none = autoclass("android.view.WindowManager$LayoutParams") \
+                    .BRIGHTNESS_OVERRIDE_NONE
+
+            @java_method("()V")
+            def run(self):                      # wątek UI Androida
+                try:
+                    window = self.activity.getWindow()
+                    params = window.getAttributes()
+                    params.screenBrightness = (self.none if self.value is None
+                                               else float(self.value))
+                    window.setAttributes(params)
+                except Exception as e:          # noqa: BLE001
+                    Logger.warning(f"Ekran: nie udało się zmienić jasności: {e}")
+
+        _brightness_runner = BrightnessRunnable()
+    return _brightness_runner
+
+
 def set_brightness(value):
     """Android: jasność okna 0.0-1.0; None = jasność systemowa. Na komputerze nic."""
     if platform != "android":
         return
     try:
-        from android.runnable import run_on_ui_thread  # noqa: dostępne tylko w APK
-        from jnius import autoclass
-
-        @run_on_ui_thread
-        def apply():
-            activity = autoclass("org.kivy.android.PythonActivity").mActivity
-            params_cls = autoclass("android.view.WindowManager$LayoutParams")
-            window = activity.getWindow()
-            params = window.getAttributes()
-            params.screenBrightness = (params_cls.BRIGHTNESS_OVERRIDE_NONE if value is None
-                                       else float(value))
-            window.setAttributes(params)
-        apply()
+        runner = _runner()
+        runner.value = value
+        runner.activity.runOnUiThread(runner)
     except Exception as e:              # noqa: BLE001
         Logger.warning(f"Ekran: nie udało się zmienić jasności: {e}")

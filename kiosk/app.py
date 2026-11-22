@@ -140,6 +140,11 @@ class KioskApp(App):
         self._battery_trigger = Clock.create_trigger(lambda _dt: self.check_tablet_battery(), 0.3)
         device.watch_power(self._battery_trigger)
         self.app_version = device.app_version()
+        # strażnik systemowy: po awarii aplikacja wraca sama najpóźniej po 15 minutach
+        device.start_watchdog()
+        # diagnostyka wycieku JNI - tylko gdy na tablecie jest plik-znacznik (adb push)
+        from kiosk import jni_probe
+        Clock.schedule_once(lambda _dt: jni_probe.maybe_run(self), 20)
         Clock.schedule_interval(lambda _dt: self.check_tablet_battery(), TABLET_BATTERY_SECONDS)
 
         self.provider = None

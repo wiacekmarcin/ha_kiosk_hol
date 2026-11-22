@@ -2,7 +2,7 @@
 title = HA Kiosk
 package.name = hakiosk
 package.domain = pl.mieszkanie
-version = 0.19
+version = 0.22
 
 source.dir = .
 # ogg: nagrania pełnych godzin (assets/sounds)

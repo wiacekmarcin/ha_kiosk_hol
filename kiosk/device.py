@@ -303,3 +303,37 @@ def app_version() -> str:
     except Exception as e:      # noqa: BLE001
         Logger.warning(f"Kiosk: nie udało się odczytać wersji aplikacji: {e}")
         return ""
+
+
+# --- strażnik: ponowne uruchomienie aplikacji po awarii --------------------------------
+WATCHDOG_MINUTES = 15
+WATCHDOG_REQUEST = 4711
+
+
+def start_watchdog() -> bool:
+    """Alarm systemowy co WATCHDOG_MINUTES uruchamia aktywność kiosku. Gdy aplikacja
+    działa, tylko przywraca ją na wierzch; gdy padła (awaria czyści też ustawienie
+    ekranu głównego), uruchamia ją od nowa. Alarm żyje w systemie, nie w aplikacji."""
+    if not ANDROID:
+        return False
+    try:
+        from jnius import autoclass
+        Intent = autoclass("android.content.Intent")
+        PendingIntent = autoclass("android.app.PendingIntent")
+        AlarmManager = autoclass("android.app.AlarmManager")
+        SystemClock = autoclass("android.os.SystemClock")
+        Context = autoclass("android.content.Context")
+        activity = _activity()
+        intent = Intent(activity, activity.getClass())
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+        flags = PendingIntent.FLAG_UPDATE_CURRENT | 0x04000000     # FLAG_IMMUTABLE
+        pending = PendingIntent.getActivity(activity, WATCHDOG_REQUEST, intent, flags)
+        alarm = activity.getSystemService(Context.ALARM_SERVICE)
+        period = WATCHDOG_MINUTES * 60 * 1000
+        alarm.setInexactRepeating(AlarmManager.ELAPSED_REALTIME,
+                                  SystemClock.elapsedRealtime() + period, period, pending)
+        Logger.info(f"Kiosk: strażnik co {WATCHDOG_MINUTES} min")
+        return True
+    except Exception as e:      # noqa: BLE001
+        Logger.warning(f"Kiosk: nie udało się ustawić strażnika: {e}")
+        return False
