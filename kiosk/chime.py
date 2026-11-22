@@ -6,19 +6,25 @@ przy wygaszonym ekranie; głośność z suwaka głośności (strumień multimedi
 
 Godziny: poniedziałek-piątek od 7:00, sobota i niedziela od 9:00, do 22:00 włącznie.
 Włączenie: przełącznik w Ustawieniach (local.json: hour_chime, domyślnie włączone).
+
+Android: systemowy MediaPlayer wołany bezpośrednio przez pyjnius, jeden obiekt na całe
+życie aplikacji (reset -> setDataSource -> prepare -> start). Dostawca dźwięku Kivy
+wybierał na tablecie audio_sdl2, które nie wydawało dźwięku (audio_android "ignored").
+Komputer: SoundLoader z Kivy.
 """
 from datetime import datetime
 from pathlib import Path
 
 from kivy.clock import Clock
-from kivy.core.audio import SoundLoader
 from kivy.logger import Logger
+from kivy.utils import platform
 
 SOUNDS = Path(__file__).resolve().parent.parent / "assets" / "sounds"
 WEEKDAY_START = 7
 WEEKEND_START = 9
 END = 22
 CHECK_SECONDS = 10
+STREAM_MUSIC = 3                # android.media.AudioManager.STREAM_MUSIC
 
 
 def is_announced(now: datetime) -> bool:
@@ -31,7 +37,8 @@ class HourChime:
     def __init__(self, enabled: bool = True):
         self.enabled = enabled
         self._done = None               # (data, godzina) już ogłoszona
-        self._sound = None
+        self._sound = None              # komputer: dźwięk Kivy
+        self._player = None             # Android: jeden MediaPlayer
         Clock.schedule_interval(self._check, CHECK_SECONDS)
 
     def _check(self, _dt):
@@ -53,14 +60,31 @@ class HourChime:
             Logger.warning(f"Godzina: brak nagrania {path.name}")
             return
         try:
-            if self._sound is not None:
-                self._sound.stop()
-                self._sound.unload()
-            self._sound = SoundLoader.load(str(path))
-            if self._sound is None:
-                Logger.warning(f"Godzina: nie udało się wczytać {path.name}")
-                return
+            if platform == "android":
+                self._play_android(str(path))
+            else:
+                self._play_kivy(str(path))
             Logger.info(f"Godzina: ogłoszenie {hour}:00")
-            self._sound.play()
         except Exception as e:          # noqa: BLE001 - dźwięk nie może zatrzymać aplikacji
             Logger.warning(f"Godzina: błąd odtwarzania: {e}")
+
+    def _play_android(self, path: str):
+        if self._player is None:
+            from jnius import autoclass
+            self._player = autoclass("android.media.MediaPlayer")()
+        player = self._player
+        player.reset()                  # także przerywa poprzedni komunikat
+        player.setAudioStreamType(STREAM_MUSIC)
+        player.setDataSource(path)
+        player.prepare()
+        player.start()
+
+    def _play_kivy(self, path: str):
+        from kivy.core.audio import SoundLoader
+        if self._sound is not None:
+            self._sound.stop()
+            self._sound.unload()
+        self._sound = SoundLoader.load(path)
+        if self._sound is None:
+            raise RuntimeError(f"nie udało się wczytać {Path(path).name}")
+        self._sound.play()
