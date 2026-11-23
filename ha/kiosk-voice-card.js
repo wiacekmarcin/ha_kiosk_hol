@@ -120,7 +120,8 @@ class KioskVoiceCard extends HTMLElement {
       this._status("Brak dostępu do mikrofonu: " + err.message);
       return;
     }
-    const types = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+    // AAC w MP4 albo Opus w WebM - Android 7 nie odtwarza Opusa w kontenerze MP4.
+    const types = ["audio/mp4;codecs=mp4a.40.2", "audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
     this._mime = types.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
     this._chunks = [];
     this._rec = new MediaRecorder(this._stream, this._mime ? { mimeType: this._mime, audioBitsPerSecond: 48000 } : {});
