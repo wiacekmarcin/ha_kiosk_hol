@@ -117,13 +117,14 @@ class KioskApp(App):
         # wygaszanie ekranu po bezczynności, budzenie dotykiem / ruchem (przednia kamera);
         # dopiero wygaszenie zamyka okna, a wybudzenie pokazuje ekran startowy
         self.screensaver = ScreenSaver(on_wake=lambda: self.go_to("start"))
-        # pełne godziny: gong i "Jest godzina ..." (pn-pt 7-22, sb-nd 9-22), także przy
-        # wygaszonym ekranie; przełącznik w Ustawieniach
-        self.chime = HourChime(bool(load_local().get("hour_chime", True)))
-        # wiadomości głosowe: jeden rejestrator i jeden odtwarzacz (połączenie w apply_settings)
+        # wspólna kolejka komunikatów (wiadomości głosowe, ogłoszenia godzin) - po kolei,
+        # bez przerywania; rejestrator wiadomości (połączenie z HA w apply_settings)
         self.voice = None
         self.voice_recorder = voice.Recorder()
         self.voice_player = voice.Player()
+        # pełne godziny: gong i "Jest godzina ..." (pn-pt 7-22, sb-nd 9-22), także przy
+        # wygaszonym ekranie; przełącznik w Ustawieniach
+        self.chime = HourChime(self.voice_player, bool(load_local().get("hour_chime", True)))
         self.apply_screen_settings()
 
         self.check_network()

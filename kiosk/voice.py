@@ -20,6 +20,7 @@ każde nowe obiekty Javy na głównym wątku zostawiałyby odwołania JNI.
 Uprawnienie RECORD_AUDIO pytane przy pierwszym otwarciu okna nagrywania.
 """
 import threading
+from collections import deque
 import time
 import uuid
 from datetime import datetime, timezone
@@ -128,7 +129,9 @@ class Recorder:
 
 # --- odtwarzanie ----------------------------------------------------------------------
 class Player:
-    """Zapowiedź i wiadomość jedna po drugiej, jeden MediaPlayer.
+    """Kolejka komunikatów: wszystko, co aplikacja chce powiedzieć (zapowiedź i wiadomość
+    głosowa, ogłoszenie godziny, komunikat pory dnia), gra po kolei na jednym MediaPlayerze.
+    Nowy komunikat nie przerywa bieżącego, tylko czeka na swoją kolej.
 
     Nagrania z mikrofonu tabletu (.m4a) są ciche - przy ich odtwarzaniu działa wzmacniacz
     Androida LoudnessEnhancer (+BOOST_MB milibeli, z ogranicznikiem, bez przesterowania).
@@ -139,30 +142,50 @@ class Player:
     (ogranicznik startuje od pełnego tłumienia)."""
     BOOST_MB = 1500                     # +15 dB
     NO_BOOST = (".wav", ".ogg", ".mp3")  # pliki już znormalizowane
+    GAP = 0.3                           # s przerwy między komunikatami
+    MAX_QUEUE = 12                      # zabezpieczenie przed zaległościami
 
     def __init__(self):
         self._player = None
         self._enhancer = None
-        self._next = None
+        self._next = None               # zaplanowane przejście do kolejnego komunikatu
         self._sound = None
+        self._queue = deque()
 
     def play(self, paths):
-        paths = [str(p) for p in paths if p and Path(p).exists()]
-        if self._next is not None:
-            self._next.cancel()
-            self._next = None
-        if not paths:
-            return
-        path = Path(paths[0])
-        boost = path != INTRO and path.suffix.lower() not in self.NO_BOOST
-        try:
-            seconds = self._play_one(paths[0], boost=boost)
-        except Exception as e:      # noqa: BLE001
-            Logger.warning(f"Głos: błąd odtwarzania {paths[0]}: {e}")
-            seconds = 0
-        if len(paths) > 1:
-            self._next = Clock.schedule_once(lambda _dt: self.play(paths[1:]), seconds + 0.3)
+        """Dopisuje pliki na koniec kolejki (w podanej kolejności) i startuje, jeśli cisza."""
+        for p in paths:
+            if p and Path(p).exists():
+                if len(self._queue) >= self.MAX_QUEUE:
+                    Logger.warning(f"Głos: kolejka pełna, pomijam {Path(p).name}")
+                    continue
+                self._queue.append(str(p))
+        if self._next is None:
+            self._play_next()
 
+    def _play_next(self, _dt=None):
+        self._next = None
+        if self._still_playing():       # czas trwania był niedoszacowany - poczekaj
+            self._next = Clock.schedule_once(self._play_next, 0.2)
+            return
+        while self._queue:
+            path = self._queue.popleft()
+            boost = Path(path) != INTRO and Path(path).suffix.lower() not in self.NO_BOOST
+            try:
+                seconds = self._play_one(path, boost=boost)
+            except Exception as e:      # noqa: BLE001
+                Logger.warning(f"Głos: błąd odtwarzania {path}: {e}")
+                continue
+            self._next = Clock.schedule_once(self._play_next, max(seconds, 0.5) + self.GAP)
+            return
+
+    def _still_playing(self) -> bool:
+        try:
+            if ANDROID and self._player is not None:
+                return bool(self._player.isPlaying())
+            return self._sound is not None and self._sound.state == "play"
+        except Exception:               # noqa: BLE001
+            return False
     def _play_one(self, path: str, boost: bool) -> float:
         if ANDROID:
             if self._player is None:
