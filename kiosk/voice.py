@@ -130,10 +130,15 @@ class Recorder:
 class Player:
     """Zapowiedź i wiadomość jedna po drugiej, jeden MediaPlayer.
 
-    Nagrania z mikrofonu tabletu są ciche - przy ich odtwarzaniu działa wzmacniacz
-    Androida LoudnessEnhancer (+BOOST_MB milibeli, z ogranicznikiem, bez przesterowania);
-    zapowiedź (już znormalizowana) idzie bez wzmocnienia."""
+    Nagrania z mikrofonu tabletu (.m4a) są ciche - przy ich odtwarzaniu działa wzmacniacz
+    Androida LoudnessEnhancer (+BOOST_MB milibeli, z ogranicznikiem, bez przesterowania).
+    Zapowiedź i nagrania z karty HA (.wav, znormalizowane w przeglądarce) idą bez wzmocnienia.
+
+    Wzmacniacz jest włączany raz i zostaje włączony - zmienia się tylko jego wzmocnienie.
+    Włączenie efektu w chwili startu odtwarzania wyciszało ok. 2 s początku nagrania
+    (ogranicznik startuje od pełnego tłumienia)."""
     BOOST_MB = 1500                     # +15 dB
+    NO_BOOST = (".wav", ".ogg", ".mp3")  # pliki już znormalizowane
 
     def __init__(self):
         self._player = None
@@ -148,8 +153,10 @@ class Player:
             self._next = None
         if not paths:
             return
+        path = Path(paths[0])
+        boost = path != INTRO and path.suffix.lower() not in self.NO_BOOST
         try:
-            seconds = self._play_one(paths[0], boost=Path(paths[0]) != INTRO)
+            seconds = self._play_one(paths[0], boost=boost)
         except Exception as e:      # noqa: BLE001
             Logger.warning(f"Głos: błąd odtwarzania {paths[0]}: {e}")
             seconds = 0
@@ -179,18 +186,20 @@ class Player:
         return self._sound.length or 0
 
     def _set_boost(self, enabled: bool):
-        """LoudnessEnhancer na sesji audio odtwarzacza (jeden obiekt - sesja się nie zmienia)."""
+        """LoudnessEnhancer na sesji audio odtwarzacza (jeden obiekt, stale włączony)."""
+        if self._enhancer is False:
+            return
         try:
             if self._enhancer is None:
                 from jnius import autoclass
                 enhancer_cls = autoclass("android.media.audiofx.LoudnessEnhancer")
                 self._enhancer = enhancer_cls(self._player.getAudioSessionId())
-                self._enhancer.setTargetGain(self.BOOST_MB)
-            self._enhancer.setEnabled(bool(enabled))
+                self._enhancer.setTargetGain(0)
+                self._enhancer.setEnabled(True)
+            self._enhancer.setTargetGain(self.BOOST_MB if enabled else 0)
         except Exception as e:      # noqa: BLE001 - brak efektu na urządzeniu: gramy bez wzmocnienia
             Logger.warning(f"Głos: wzmacniacz niedostępny: {e}")
-            self._enhancer = False if self._enhancer is None else self._enhancer
-
+            self._enhancer = False
 
 # --- wysyłanie i odbiór przez HA -----------------------------------------------------
 class VoiceLink:
