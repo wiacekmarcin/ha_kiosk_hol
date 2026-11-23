@@ -2,7 +2,7 @@
  * kiosk-voice-card - karta Home Assistant: wiadomość głosowa i komunikat tekstowy na tablety.
  *
  * Nagranie z mikrofonu przeglądarki (przytrzymaj i mów albo dotknij - mów - dotknij,
- * najwyżej 30 s) trafia do katalogu multimediów HA jako kiosk_glos_<nazwa>.<webm|m4a>,
+ * najwyżej 30 s) jest zamieniane na WAV i trafia do katalogu multimediów HA jako kiosk_glos_<nazwa>.wav,
  * a encja sensor.kiosk_wiadomosc_glosowa dostaje nowe id wiadomości - tablety HA Kiosk
  * i HA Intercom odtwarzają ją po zapowiedzi "Nowa wiadomość głosowa".
  * Pole tekstowe wywołuje script.kiosk_komunikat - tablety czytają tekst głosem (TTS HA).
@@ -151,16 +151,52 @@ class KioskVoiceCard extends HTMLElement {
     this._stream.getTracks().forEach((t) => t.stop());
   }
 
+  // Dekodowanie nagrania przeglądarki i zapis jako WAV 16 bit, 16 kHz, mono.
+  async _toWav(blob) {
+    const RATE = 16000;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new Ctx();
+    let decoded;
+    try {
+      decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    } finally {
+      ctx.close();
+    }
+    const length = Math.ceil(decoded.duration * RATE);
+    const off = new OfflineAudioContext(1, length, RATE);
+    const src = off.createBufferSource();
+    src.buffer = decoded;
+    src.connect(off.destination);
+    src.start();
+    const pcm = (await off.startRendering()).getChannelData(0);
+    let peak = 0;
+    for (let i = 0; i < pcm.length; i++) peak = Math.max(peak, Math.abs(pcm[i]));
+    const gain = peak > 0.01 ? Math.min(0.95 / peak, 8) : 1;  // normalizacja głośności
+    const buf = new ArrayBuffer(44 + pcm.length * 2);
+    const v = new DataView(buf);
+    const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    str(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); str(8, "WAVE");
+    str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, pcm.length * 2, true);
+    for (let i = 0; i < pcm.length; i++) {
+      const s = Math.max(-1, Math.min(1, pcm[i] * gain));
+      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    return new Blob([buf], { type: "audio/wav" });
+  }
   async _upload() {
+
     if (this._seconds < MIN_SECONDS) { this._status("Za krótko - przytrzymaj przycisk i mów"); return; }
-    const ext = (this._mime || this._rec.mimeType || "").includes("mp4") ? "m4a" : "webm";
-    const type = ext === "m4a" ? "audio/mp4" : "audio/webm";
-    const file = `kiosk_glos_${safeId(this._config.name)}.${ext}`;
+    const file = `kiosk_glos_${safeId(this._config.name)}.wav`;
     this._status(`Wysyłanie (${Math.round(this._seconds)} s)…`);
     try {
+      // Przeglądarka nagrywa w swoim formacie (Chrome na Androidzie: Opus w MP4, którego
+      // Android 7 nie odtworzy) - zamiana na WAV PCM 16 kHz mono, czytany przez każdy tablet.
+      const wav = await this._toWav(new Blob(this._chunks, { type: this._rec.mimeType || this._mime }));
       const form = new FormData();
       form.append("media_content_id", "media-source://media_source/local/.");
-      form.append("file", new Blob(this._chunks, { type }), file);
+      form.append("file", wav, file);
       const token = this._hass.auth.data.access_token;
       const r = await fetch("/api/media_source/local_source/upload", {
         method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
