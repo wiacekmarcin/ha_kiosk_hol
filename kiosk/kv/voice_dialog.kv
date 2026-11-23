@@ -74,8 +74,8 @@
             TalkButton:
                 active: root.recording
                 enabled: root.can_record
-                on_press: root.start()
-                on_release: root.stop()
+                on_press: root.press()
+                on_release: root.release()
 
         Label:
             text: root.status

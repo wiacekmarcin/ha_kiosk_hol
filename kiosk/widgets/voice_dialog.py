@@ -2,7 +2,10 @@
 
 Nagrywanie trwa, dopóki przycisk jest wciśnięty, najwyżej voice.MAX_SECONDS s
 (licznik w dół na ekranie); po puszczeniu nagranie idzie przez HA do pozostałych
-tabletów. Niżej ostatnia odebrana wiadomość z przyciskiem "Odtwórz ponownie".
+tabletów. Krótkie dotknięcie na starcie włącza tryb dotknij-mów-dotknij (nagrywanie
+bez trzymania, drugie dotknięcie wysyła). Ekran tabletu w holu gubi długi dotyk po
+około 1,5 s - puszczenie kończy nagranie dopiero po GRACE_SECONDS, jeśli dotyk nie wróci.
+Niżej ostatnia odebrana wiadomość z przyciskiem "Odtwórz ponownie".
 
 TalkMixin to wspólna logika przycisku - używa jej okno kiosku (VoiceDialog) i ekran
 aplikacji testowej domofonu (ha_intercom). Klasa korzystająca z mieszanki deklaruje
@@ -24,6 +27,11 @@ from kiosk.widgets.dialog import KioskDialog
 class TalkMixin:
     _tick = None
     _t0 = 0.0
+    _grace = None
+    _latched = False                # tryb dotknij-mów-dotknij
+    _pressed_at = 0.0
+    TAP_SECONDS = 0.6               # krótsze wciśnięcie na starcie = nagrywanie bez trzymania
+    GRACE_SECONDS = 0.8             # tyle czekamy na powrót zgubionego dotyku
 
     def init_talk(self):
         self.status = "Sprawdzanie mikrofonu…"
@@ -31,8 +39,36 @@ class TalkMixin:
 
     def _on_permission(self, granted):
         self.can_record = granted
-        self.status = "" if granted else "Brak dostępu do mikrofonu (zgoda na nagrywanie)"
+        self.status = ("Przytrzymaj i mów albo dotknij, mów i dotknij ponownie" if granted
+                       else "Brak dostępu do mikrofonu (zgoda na nagrywanie)")
 
+    # --- przycisk -----------------------------------------------------------------
+    def press(self):
+        """Wciśnięcie: start nagrywania; po zgubionym dotyku - dalej; w trybie
+        dotknij-mów-dotknij - koniec i wysłanie."""
+        self._pressed_at = time.monotonic()
+        if not self.recording:
+            self._latched = False
+            self.start()
+        elif self._grace is not None:   # palec "wrócił" - nagrywamy dalej
+            self._grace.cancel()
+            self._grace = None
+        elif self._latched:
+            self.stop()
+
+    def release(self):
+        """Puszczenie: krótkie dotknięcie na starcie przełącza w tryb bez trzymania;
+        dłuższe kończy nagranie po GRACE_SECONDS (chyba że dotyk wróci)."""
+        if not self.recording or self._latched:
+            return
+        now = time.monotonic()
+        if now - self._pressed_at < self.TAP_SECONDS and now - self._t0 < self.TAP_SECONDS + 0.2:
+            self._latched = True
+            self.status = "Nagrywanie - dotknij ponownie, aby wysłać"
+            return
+        self._grace = Clock.schedule_once(lambda _dt: self.stop(), self.GRACE_SECONDS)
+
+    # --- nagrywanie i wysyłanie ------------------------------------------------------
     def start(self):
         app = App.get_running_app()
         if app.voice is None:
@@ -59,6 +95,10 @@ class TalkMixin:
             self.stop()
 
     def stop(self, send: bool = True):
+        if self._grace is not None:
+            self._grace.cancel()
+            self._grace = None
+        self._latched = False
         if not self.recording:
             return
         self.recording = False

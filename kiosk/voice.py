@@ -119,10 +119,16 @@ class Recorder:
 
 # --- odtwarzanie ----------------------------------------------------------------------
 class Player:
-    """Zapowiedź i wiadomość jedna po drugiej, jeden MediaPlayer."""
+    """Zapowiedź i wiadomość jedna po drugiej, jeden MediaPlayer.
+
+    Nagrania z mikrofonu tabletu są ciche - przy ich odtwarzaniu działa wzmacniacz
+    Androida LoudnessEnhancer (+BOOST_MB milibeli, z ogranicznikiem, bez przesterowania);
+    zapowiedź (już znormalizowana) idzie bez wzmocnienia."""
+    BOOST_MB = 1500                     # +15 dB
 
     def __init__(self):
         self._player = None
+        self._enhancer = None
         self._next = None
         self._sound = None
 
@@ -134,14 +140,14 @@ class Player:
         if not paths:
             return
         try:
-            seconds = self._play_one(paths[0])
+            seconds = self._play_one(paths[0], boost=Path(paths[0]) != INTRO)
         except Exception as e:      # noqa: BLE001
             Logger.warning(f"Głos: błąd odtwarzania {paths[0]}: {e}")
             seconds = 0
         if len(paths) > 1:
             self._next = Clock.schedule_once(lambda _dt: self.play(paths[1:]), seconds + 0.3)
 
-    def _play_one(self, path: str) -> float:
+    def _play_one(self, path: str, boost: bool) -> float:
         if ANDROID:
             if self._player is None:
                 from jnius import autoclass
@@ -151,6 +157,7 @@ class Player:
             p.setAudioStreamType(STREAM_MUSIC)
             p.setDataSource(path)
             p.prepare()
+            self._set_boost(boost)
             p.start()
             return max(p.getDuration(), 0) / 1000
         from kivy.core.audio import SoundLoader
@@ -161,6 +168,19 @@ class Player:
             return 0
         self._sound.play()
         return self._sound.length or 0
+
+    def _set_boost(self, enabled: bool):
+        """LoudnessEnhancer na sesji audio odtwarzacza (jeden obiekt - sesja się nie zmienia)."""
+        try:
+            if self._enhancer is None:
+                from jnius import autoclass
+                enhancer_cls = autoclass("android.media.audiofx.LoudnessEnhancer")
+                self._enhancer = enhancer_cls(self._player.getAudioSessionId())
+                self._enhancer.setTargetGain(self.BOOST_MB)
+            self._enhancer.setEnabled(bool(enabled))
+        except Exception as e:      # noqa: BLE001 - brak efektu na urządzeniu: gramy bez wzmocnienia
+            Logger.warning(f"Głos: wzmacniacz niedostępny: {e}")
+            self._enhancer = False if self._enhancer is None else self._enhancer
 
 
 # --- wysyłanie i odbiór przez HA -----------------------------------------------------
