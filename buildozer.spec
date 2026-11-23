@@ -2,7 +2,7 @@
 title = HA Kiosk
 package.name = hakiosk
 package.domain = pl.mieszkanie
-version = 0.23
+version = 0.24
 
 source.dir = .
 # ogg: nagrania pełnych godzin (assets/sounds)
@@ -22,7 +22,7 @@ fullscreen = 1
 # --- Android ---
 # WRITE_SECURE_SETTINGS (Android i LineageOS): przycisk "Włącz ADB przez sieć" w Ustawieniach;
 # nadawane raz przez ADB: pm grant pl.mieszkanie.hakiosk <uprawnienie>
-android.permissions = INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, WAKE_LOCK, CAMERA, WRITE_SECURE_SETTINGS, cyanogenmod.permission.WRITE_SECURE_SETTINGS
+android.permissions = INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, WAKE_LOCK, CAMERA, RECORD_AUDIO, WRITE_SECURE_SETTINGS, cyanogenmod.permission.WRITE_SECURE_SETTINGS
 # Android 7.1 = API 25; minimalne API 21, docelowe 33
 android.api = 33
 android.minapi = 21

@@ -15,6 +15,8 @@ from datetime import date, timedelta
 
 from kiosk import config, device, icons, network
 from kiosk.chime import HourChime
+from kiosk import voice
+from kiosk.widgets.voice_dialog import VoiceDialog
 from kiosk.kalbi import KalbiCache
 from kiosk.data import mock
 from kiosk.ha.provider import HAProvider
@@ -60,6 +62,7 @@ class KioskApp(App):
     tablet_battery_color = ListProperty(list(config.COLOR_TEXT_DIM))
     tablet_charging = BooleanProperty(False)            # tablet podłączony do ładowania
     tablet_charge_power = StringProperty("")             # moc gniazdka ładowarki, np. "7 W"
+    voice_last = StringProperty("")                      # ostatnia odebrana wiadomość głosowa
     app_version = StringProperty("")                    # versionName z APK (nad baterią)
     _last_battery = None                                # ostatni stan baterii wysłany do HA
     # jasność i głośność tabletu 0-100 (ekran Ustawienia, encje input_number w HA)
@@ -117,6 +120,10 @@ class KioskApp(App):
         # pełne godziny: gong i "Jest godzina ..." (pn-pt 7-22, sb-nd 9-22), także przy
         # wygaszonym ekranie; przełącznik w Ustawieniach
         self.chime = HourChime(bool(load_local().get("hour_chime", True)))
+        # wiadomości głosowe: jeden rejestrator i jeden odtwarzacz (połączenie w apply_settings)
+        self.voice = None
+        self.voice_recorder = voice.Recorder()
+        self.voice_player = voice.Player()
         self.apply_screen_settings()
 
         self.check_network()
@@ -170,6 +177,9 @@ class KioskApp(App):
         if self.tablet_sync:
             self.tablet_sync.stop()
             self.tablet_sync = None
+        if self.voice:
+            self.voice.stop()
+            self.voice = None
         self.settings = settings = load_settings()
         ents = settings.get("entities", {}) if settings else {}
         self.energy_screen.build(ents.get("energy", {}) if settings else mock.ENERGY)
@@ -197,6 +207,10 @@ class KioskApp(App):
         self.tablet_sync.set_battery(device.battery())
         self.tablet_sync.start(int(self.tablet_brightness), int(self.tablet_volume),
                                self.tablet_auto_brightness)
+        # wiadomości głosowe: nazwa tabletu z settings.json (tablet_name), domyślnie "Hol"
+        self.voice = voice.VoiceLink(settings, settings.get("tablet_name", "Hol"),
+                                     voice.cache_dir(), self._on_voice_message)
+        self.voice.start()
 
     @property
     def rooms(self):
@@ -462,6 +476,23 @@ class KioskApp(App):
                 self.go_to("start")
             return True                         # nigdy nie zamykaj aplikacji
         return False
+
+    def nav(self, target: str):
+        """Boczne menu: ekran albo akcja (screen_off - wygaszenie, voice - wiadomość głosowa)."""
+        if target == "screen_off":
+            self.screensaver.blank()
+        elif target == "voice":
+            VoiceDialog().open()
+        elif target:
+            self.go_to(target)
+
+    # --- wiadomości głosowe między tabletami (przez HA) ----------------------------
+    def _on_voice_message(self, info, path):
+        """Nowa wiadomość od innego tabletu: zapowiedź (gong + głos) i nagranie."""
+        dur = info.get("duration")
+        self.voice_last = (f"od: {info.get('from', '?')}, {info.get('time', '')}"
+                           + (f", {dur:.0f} s" if isinstance(dur, (int, float)) else ""))
+        self.voice_player.play([voice.INTRO, path])
 
     def go_to(self, screen_name: str):
         self.sm.current = screen_name

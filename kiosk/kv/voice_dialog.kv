@@ -1,0 +1,106 @@
+#:import config kiosk.config
+
+# Duży okrągły przycisk: wciśnięty = nagrywanie (always_release: puszczenie także poza
+# przyciskiem kończy nagrywanie)
+<TalkButton@ButtonBehavior+FloatLayout>:
+    active: False
+    enabled: True
+    always_release: True
+    size_hint: None, None
+    size: 340, 340
+    canvas.before:
+        Color:
+            rgba: (0.86, 0.20, 0.20, 1) if self.active else ((0.12, 0.45, 0.75, 1) if self.enabled else (0.25, 0.26, 0.30, 1))
+        Ellipse:
+            pos: self.pos
+            size: self.size
+        Color:
+            rgba: 1, 1, 1, (0.35 if self.active else 0.12)
+        Line:
+            circle: self.center_x, self.center_y, self.width / 2 + 14
+            width: 3
+    Icon:
+        icon: "microphone"
+        font_size: "110sp"
+        color: 1, 1, 1, 1
+        pos_hint: {"center_x": 0.5, "center_y": 0.62}
+    Label:
+        text: "Mów…" if root.active else "Przytrzymaj\ni mów"
+        font_size: "30sp"
+        bold: True
+        halign: "center"
+        pos_hint: {"center_x": 0.5, "center_y": 0.28}
+
+<VoiceDialog>:
+    size_hint: 1, 1                     # cały ekran, czarne tło
+    overlay_color: 0, 0, 0, 1
+    background: ""
+    background_color: 0, 0, 0, 0
+    BoxLayout:
+        orientation: "vertical"
+        padding: [24, 16, 24, 24]
+        spacing: 10
+        canvas.before:
+            Color:
+                rgba: 0, 0, 0, 1
+            Rectangle:
+                pos: self.pos
+                size: self.size
+
+        BoxLayout:
+            size_hint_y: None
+            height: 64
+            spacing: 16
+            CloseButton:
+                pos_hint: {"center_y": 0.5}
+                on_release: root.dismiss()
+            Label:
+                text: "Wiadomość głosowa do pozostałych tabletów"
+                font_size: "24sp"
+                text_size: self.size
+                halign: "left"
+                valign: "middle"
+
+        # licznik w dół (widoczny podczas nagrywania)
+        Label:
+            text: "{} s".format(int(root.remaining)) if root.recording else "maks. {} s".format(int(root.max_seconds))
+            font_size: "64sp" if root.recording else "26sp"
+            bold: root.recording
+            color: (0.95, 0.35, 0.35, 1) if root.recording else config.COLOR_TEXT_DIM
+            size_hint_y: None
+            height: 90
+
+        AnchorLayout:
+            TalkButton:
+                active: root.recording
+                enabled: root.can_record
+                on_press: root.start()
+                on_release: root.stop()
+
+        Label:
+            text: root.status
+            font_size: "22sp"
+            color: config.COLOR_TEXT
+            size_hint_y: None
+            height: 40
+
+        # ostatnia odebrana wiadomość
+        BoxLayout:
+            size_hint_y: None
+            height: 64
+            spacing: 16
+            opacity: 1 if app.voice_last else 0
+            disabled: not app.voice_last
+            Widget:
+            Label:
+                text: "Ostatnia wiadomość: " + app.voice_last
+                font_size: "19sp"
+                color: config.COLOR_TEXT_DIM
+                size_hint_x: None
+                width: self.texture_size[0]
+            SettingsButton:
+                icon: "play"
+                text: "Odtwórz ponownie"
+                pos_hint: {"center_y": 0.5}
+                on_release: root.replay()
+            Widget:

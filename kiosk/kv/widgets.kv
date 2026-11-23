@@ -96,7 +96,7 @@
             radius: [2]
 
 # Pozycja bocznego menu: section = podświetlana sekcja, target = ekran do otwarcia
-# (pusty target = wygaszenie ekranu)
+# albo akcja (screen_off - wygaszenie, voice - wiadomość głosowa), patrz KioskApp.nav
 <NavItem@ButtonBehavior+AnchorLayout>:
     icon: ""
     section: ""
@@ -104,7 +104,7 @@
     tint: []          # stały kolor ikony (np. stan baterii); pusty = kolor wg zaznaczenia
     size_hint_y: None
     height: 76
-    on_release: app.go_to(self.target) if self.target else app.screensaver.blank()
+    on_release: app.nav(self.target)
     canvas.before:
         Color:
             rgba: config.COLOR_ACCENT_SOFT if app.section == self.section else (1, 1, 1, (0.06 if self.state == "down" else 0))
@@ -151,11 +151,16 @@
         target: "battery"
         tint: app.battery_color
     Widget:
-    # wyświetlacz: od razu wygasza ekran (pusty target - bez zmiany ekranu)
+    # wyświetlacz: od razu wygasza ekran
     NavItem:
         icon: "monitor"
         section: "screen_off"
-        target: ""
+        target: "screen_off"
+    # słuchawka: wiadomość głosowa do pozostałych tabletów (przez HA)
+    NavItem:
+        icon: "phone"
+        section: "voice"
+        target: "voice"
     NavItem:
         icon: "dots-horizontal"
         section: "settings"

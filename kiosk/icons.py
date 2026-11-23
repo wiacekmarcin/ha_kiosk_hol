@@ -139,6 +139,9 @@ _CODES = {
     "briefcase": 0xF00D6,
     "volume-high": 0xF057E,
     "bell-ring": 0xF009E,
+    "phone": 0xF03F2,
+    "microphone": 0xF036C,
+    "play": 0xF040A,
 }
 
 
