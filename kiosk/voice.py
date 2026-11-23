@@ -8,6 +8,12 @@ wiadomości) i atrybuty: od kogo, nazwa pliku, czas, długość.
 Odbiór: każdy tablet co POLL_SECONDS s czyta STATE_ENTITY; nowa wiadomość od innego
 tabletu (nie starsza niż MAX_AGE s) jest pobierana (GET /media/local/<plik>) i
 odtwarzana po zapowiedzi "Nowa wiadomość głosowa" (gong + głos).
+Wiadomość może też przyjść z karty "kiosk-voice-card" na dashboardzie HA (nagranie
+z przeglądarki, .webm albo .m4a).
+
+Komunikaty tekstowe: TEXT_ENTITY (input_text, ustawiany przez script.kiosk_komunikat
+z automatyzacji albo z karty) - tablet zamienia tekst na mowę (TTS_ENGINE w HA)
+i odtwarza po zapowiedzi.
 
 Android: jeden MediaRecorder i jeden MediaPlayer na całe życie aplikacji (pyjnius) -
 każde nowe obiekty Javy na głównym wątku zostawiałyby odwołania JNI.
@@ -30,6 +36,9 @@ MIN_SECONDS = 0.7                   # krótsze nagranie to przypadkowe dotknięc
 POLL_SECONDS = 3
 MAX_AGE = 300                       # s - starszych wiadomości nie odtwarzamy (np. po starcie)
 STATE_ENTITY = "sensor.kiosk_wiadomosc_glosowa"
+TEXT_ENTITY = "input_text.kiosk_komunikat"      # komunikat tekstowy z HA (script.kiosk_komunikat)
+TTS_ENGINE = "tts.home_assistant_cloud"         # Nabu Casa - polski głos
+TTS_LANGUAGE = "pl-PL"
 INTRO = Path(__file__).resolve().parent.parent / "assets" / "sounds" / "message_intro.ogg"
 STREAM_MUSIC = 3
 
@@ -196,6 +205,8 @@ class VoiceLink:
         self.on_message = on_message
         self.last = None                # ostatnia odebrana wiadomość (info, ścieżka)
         self._seen = None
+        self._text_seen = None
+        self._text_first = True
         self._first = True
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="ha-voice", daemon=True)
@@ -231,18 +242,23 @@ class VoiceLink:
             except Exception as e:      # noqa: BLE001
                 Logger.warning(f"Głos: błąd wysyłania: {e}")
                 Clock.schedule_once(lambda _dt, err=str(e): callback(False, err))
-        threading.Thread(target=work, name="ha-voice-send", daemon=True).start()
-
     # odbiór
     def _run(self):
         while not self._stop.is_set():
-            try:
-                self._poll()
-            except Exception as e:      # noqa: BLE001
-                Logger.debug(f"Głos: odczyt {STATE_ENTITY}: {e}")
+            for poll in (self._poll_voice, self._poll_text):
+                try:
+                    poll()
+                except Exception as e:  # noqa: BLE001
+                    Logger.debug(f"Głos: odczyt ({poll.__name__}): {e}")
             self._stop.wait(POLL_SECONDS)
 
-    def _poll(self):
+    def _deliver(self, info: dict, path: Path):
+        self.last = (info, str(path))
+        if self.on_message:
+            Clock.schedule_once(lambda _dt: self.on_message(info, str(path)))
+
+    def _poll_voice(self):
+        """Nagranie z innego tabletu albo z karty na dashboardzie HA."""
         r = requests.get(f"{self.base}/api/states/{STATE_ENTITY}", headers=self.headers, timeout=10)
         if r.status_code == 404:
             self._first = False
@@ -267,11 +283,48 @@ class VoiceLink:
         media = requests.get(f"{self.base}/media/local/{attrs['file']}", headers=self.headers,
                              timeout=30)
         media.raise_for_status()
-        path = self.cache / "odebrana.m4a"
+        # rozszerzenie jak u nadawcy: tablet .m4a, przeglądarka .webm albo .m4a
+        path = self.cache / ("odebrana" + (Path(attrs["file"]).suffix or ".m4a"))
         path.write_bytes(media.content)
         info = {"from": attrs.get("from", "?"), "duration": attrs.get("duration"),
                 "time": datetime.now().strftime("%H:%M")}
-        self.last = (info, str(path))
         Logger.info(f"Głos: wiadomość od {info['from']} ({info['duration']} s)")
-        if self.on_message:
-            Clock.schedule_once(lambda _dt: self.on_message(info, str(path)))
+        self._deliver(info, path)
+
+    def _poll_text(self):
+        """Komunikat tekstowy z HA (skrypt / automatyzacja / karta): TEXT_ENTITY -> mowa
+        z silnika TTS_ENGINE (POST /api/tts_get_url) -> odtworzenie po zapowiedzi."""
+        r = requests.get(f"{self.base}/api/states/{TEXT_ENTITY}", headers=self.headers, timeout=10)
+        if r.status_code == 404:
+            self._text_first = False
+            return
+        r.raise_for_status()
+        st = r.json()
+        text, changed = (st.get("state") or "").strip(), st.get("last_changed")
+        if changed == self._text_seen:
+            return
+        self._text_seen = changed
+        if self._text_first:
+            self._text_first = False
+            return
+        if not text or text in ("unknown", "unavailable"):
+            return
+        try:
+            if (datetime.now(timezone.utc) - datetime.fromisoformat(changed)).total_seconds() > MAX_AGE:
+                return
+        except (TypeError, ValueError):
+            pass
+        r = requests.post(f"{self.base}/api/tts_get_url", headers=self.headers, timeout=30,
+                          json={"engine_id": TTS_ENGINE, "message": text, "language": TTS_LANGUAGE})
+        r.raise_for_status()
+        url = r.json()["url"]
+        if url.startswith("/"):
+            url = self.base + url
+        audio = requests.get(url, headers=self.headers, timeout=30)
+        audio.raise_for_status()
+        path = self.cache / "komunikat.mp3"
+        path.write_bytes(audio.content)
+        info = {"from": "Home Assistant", "text": text, "duration": None,
+                "time": datetime.now().strftime("%H:%M")}
+        Logger.info(f"Głos: komunikat z HA: {text[:60]}")
+        self._deliver(info, path)
