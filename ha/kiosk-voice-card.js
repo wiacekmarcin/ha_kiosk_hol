@@ -17,6 +17,9 @@
 const MAX_SECONDS = 30;
 const MIN_SECONDS = 0.7;
 const TAP_SECONDS = 0.6;
+const WARMUP_MS = 300;          // rozruch kodera przed sygnałem "mów"
+const MIC_KEEP_SECONDS = 60;    // mikrofon otwarty po nagraniu (szybki start kolejnego)
+const LEAD_SILENCE = 0.4;       // cisza na początku WAV - rozruch głośnika w tablecie
 const STATE_ENTITY = "sensor.kiosk_wiadomosc_glosowa";
 
 function safeId(name) {
@@ -105,7 +108,7 @@ class KioskVoiceCard extends HTMLElement {
   _release() {
     if (!this._recording || this._latched) return;
     const now = performance.now();
-    if (now - this._pressedAt < TAP_SECONDS * 1000 && now - this._t0 < TAP_SECONDS * 1000 + 300) {
+    if (now - this._pressedAt < TAP_SECONDS * 1000) {
       this._latched = true;
       this._status("Nagrywanie - dotknij ponownie, aby wysłać");
       return;
@@ -113,25 +116,52 @@ class KioskVoiceCard extends HTMLElement {
     this._stop();
   }
 
+  // Mikrofon zostaje otwarty przez MIC_KEEP_SECONDS po nagraniu - kolejne nagranie startuje
+  // od razu, bez rozruchu mikrofonu, który ucinał początek wypowiedzi.
+  async _ensureStream() {
+    clearTimeout(this._release_timer);
+    if (this._stream && this._stream.getTracks().some((t) => t.readyState === "live")) return this._stream;
+    this._stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    return this._stream;
+  }
+
+  _releaseStreamLater() {
+    clearTimeout(this._release_timer);
+    this._release_timer = setTimeout(() => {
+      if (this._recording || !this._stream) return;
+      this._stream.getTracks().forEach((t) => t.stop());
+      this._stream = null;
+    }, MIC_KEEP_SECONDS * 1000);
+  }
+
   async _start() {
+    this._recording = true;          // od teraz puszczenie przycisku kończy nagranie
+    this._starting = true;
+    this._t0 = 0;
+    this._status("Przygotowanie mikrofonu…");
     try {
-      this._stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      await this._ensureStream();
     } catch (err) {
+      this._recording = false;
+      this._starting = false;
       this._status("Brak dostępu do mikrofonu: " + err.message);
       return;
     }
-    // AAC w MP4 albo Opus w WebM - Android 7 nie odtwarza Opusa w kontenerze MP4.
+    // AAC w MP4 albo Opus w WebM; i tak karta zamienia nagranie na WAV przed wysłaniem.
     const types = ["audio/mp4;codecs=mp4a.40.2", "audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
     this._mime = types.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
     this._chunks = [];
     this._rec = new MediaRecorder(this._stream, this._mime ? { mimeType: this._mime, audioBitsPerSecond: 48000 } : {});
     this._rec.ondataavailable = (e) => { if (e.data.size) this._chunks.push(e.data); };
     this._rec.onstop = () => this._upload();
-    this._rec.start();
-    this._recording = true;
+    await new Promise((resolve) => { this._rec.onstart = resolve; this._rec.start(250); });
+    // koder potrzebuje chwili - sygnał "mów" dopiero po rozruchu
+    await new Promise((resolve) => setTimeout(resolve, WARMUP_MS));
+    this._starting = false;
     this._t0 = performance.now();
+    if (!this._recording) { this._finish(); return; }   // puszczony w czasie przygotowania
     this._root.getElementById("talk").classList.add("rec");
-    this._status("Nagrywanie - puść przycisk, aby wysłać");
+    this._status(this._latched ? "Mów - dotknij ponownie, aby wysłać" : "Mów - puść przycisk, aby wysłać");
     this._timer = setInterval(() => {
       const left = MAX_SECONDS - (performance.now() - this._t0) / 1000;
       this._count(`${Math.max(0, Math.ceil(left))} s`, true);
@@ -143,12 +173,17 @@ class KioskVoiceCard extends HTMLElement {
     if (!this._recording) return;
     this._recording = false;
     this._latched = false;
+    if (this._starting) return;      // _start dokończy przygotowanie i zamknie nagranie
+    this._finish();
+  }
+
+  _finish() {
     clearInterval(this._timer);
-    this._seconds = (performance.now() - this._t0) / 1000;
+    this._seconds = this._t0 ? (performance.now() - this._t0) / 1000 : 0;
     this._root.getElementById("talk").classList.remove("rec");
     this._count(`maks. ${MAX_SECONDS} s`, false);
     this._rec.stop();
-    this._stream.getTracks().forEach((t) => t.stop());
+    this._releaseStreamLater();
   }
 
   // Dekodowanie nagrania przeglądarki i zapis jako WAV 16 bit, 16 kHz, mono.
@@ -172,16 +207,18 @@ class KioskVoiceCard extends HTMLElement {
     let peak = 0;
     for (let i = 0; i < pcm.length; i++) peak = Math.max(peak, Math.abs(pcm[i]));
     const gain = peak > 0.01 ? Math.min(0.95 / peak, 8) : 1;  // normalizacja głośności
-    const buf = new ArrayBuffer(44 + pcm.length * 2);
+    const pad = Math.round(LEAD_SILENCE * RATE);   // próbki ciszy przed nagraniem
+    const bytes = (pad + pcm.length) * 2;
+    const buf = new ArrayBuffer(44 + bytes);
     const v = new DataView(buf);
     const str = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-    str(0, "RIFF"); v.setUint32(4, 36 + pcm.length * 2, true); str(8, "WAVE");
+    str(0, "RIFF"); v.setUint32(4, 36 + bytes, true); str(8, "WAVE");
     str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
     v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true);
-    v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, pcm.length * 2, true);
+    v.setUint16(34, 16, true); str(36, "data"); v.setUint32(40, bytes, true);
     for (let i = 0; i < pcm.length; i++) {
       const s = Math.max(-1, Math.min(1, pcm[i] * gain));
-      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      v.setInt16(44 + (pad + i) * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
     return new Blob([buf], { type: "audio/wav" });
   }
