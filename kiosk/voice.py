@@ -274,6 +274,8 @@ class VoiceLink:
             except Exception as e:      # noqa: BLE001
                 Logger.warning(f"Głos: błąd wysyłania: {e}")
                 Clock.schedule_once(lambda _dt, err=str(e): callback(False, err))
+        threading.Thread(target=work, name="ha-voice-send", daemon=True).start()
+
     # odbiór
     def _run(self):
         while not self._stop.is_set():

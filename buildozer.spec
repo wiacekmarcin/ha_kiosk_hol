@@ -2,7 +2,7 @@
 title = HA Kiosk
 package.name = hakiosk
 package.domain = pl.mieszkanie
-version = 0.28
+version = 0.30
 
 source.dir = .
 # ogg: nagrania pełnych godzin (assets/sounds)
@@ -34,11 +34,18 @@ android.accept_sdk_license = True
 # token w settings.json - bez kopii zapasowych aplikacji
 android.allow_backup = False
 android.wakelock = True
+# jedna aktywność: sygnał "ekran główny" (Home) trafia do działającej aplikacji; przy
+# domyślnym trybie Android tworzył drugą aktywność, SDL się wywracał (NullPointerException
+# w SDLSurface), a system kasował ustawienie aplikacji jako ekranu głównego
+android.manifest.launch_mode = singleTask
 # aplikacja jako ekran główny (launcher): start po włączeniu tabletu i po przycisku Home
 android.home_app = True
 # wersja wydaniowa jako APK (domyślnie buildozer robi AAB dla Sklepu Play)
 android.release_artifact = apk
 
 [buildozer]
+# wspólny katalog budowania kiosków (ha_kiosk, ha_kiosk_dzieci, ha_intercom) - biblioteki
+# skompilowane raz dla danej architektury; budować po kolei, nie równolegle
+build_dir = ../.buildozer-wspolny
 log_level = 2
 warn_on_root = 1

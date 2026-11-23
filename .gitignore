@@ -4,5 +4,6 @@ __pycache__/
 venv/
 *.log
 settings.json
-.buildozer/
+# katalog budowania albo dowiązanie do wspólnego ../.buildozer-wspolny
+.buildozer
 bin/
