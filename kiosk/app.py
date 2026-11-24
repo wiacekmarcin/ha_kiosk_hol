@@ -450,7 +450,8 @@ class KioskApp(App):
         return platform == "android"
 
     def _android_setup(self):
-        """Kiosk na tablecie: ekran nie gaśnie, "Wstecz" wraca na ekran startowy."""
+        """Kiosk na tablecie: ekran nie gaśnie, przyciski tabletu działają systemowo tylko
+        na ekranie startowym (_on_key)."""
         Window.bind(on_keyboard=self._on_key)
         Window.softinput_mode = "below_target"   # klawiatura nie zasłania pola tekstowego
         try:
@@ -466,17 +467,18 @@ class KioskApp(App):
         except Exception as e:      # noqa: BLE001
             Logger.warning(f"Android: nie udało się wyłączyć wygaszania ekranu: {e}")
 
+    # przyciski tabletu: 27 - Wstecz (Esc na PC), 319 i 1073741942 - Menu (Kivy / SDL)
+    HARDWARE_KEYS = {27, 319, 1073741942}
+
     def _on_key(self, _window, key, *_args):
-        if key == 27:                           # Wstecz / Esc
-            from kivy.factory import Factory
-            for w in list(Window.children):
-                if isinstance(w, Factory.ModalView):
-                    w.dismiss()
-                    return True
-            if self.sm.current != "start":
-                self.go_to("start")
-            return True                         # nigdy nie zamykaj aplikacji
-        return False
+        """Przyciski tabletu (Wstecz, Menu) działają systemowo tylko na ekranie startowym
+        bez otwartych okien; na pozostałych ekranach i w oknach nic nie robią - do cofania
+        są przyciski na ekranie (Wstecz u góry, menu po prawej)."""
+        if key not in self.HARDWARE_KEYS:
+            return False
+        from kivy.factory import Factory
+        dialog_open = any(isinstance(w, Factory.ModalView) for w in Window.children)
+        return dialog_open or self.sm.current != "start"
 
     def nav(self, target: str):
         """Boczne menu: ekran albo akcja (screen_off - wygaszenie, voice - wiadomość głosowa)."""
