@@ -258,13 +258,36 @@ class HAProvider:
         threading.Thread(target=work, name="ha-history", daemon=True).start()
 
     _template_ok = True       # czy /api/template działa (jedno zapytanie zamiast N)
+    center = None             # Kiosk Center (kiosk/center.py) - ustawia aplikacja
+
+    def _via_center(self, entity_ids: list, convert, callback, ha_path) -> bool:
+        """Stany encji jednym komunikatem "get" do Kiosk Center, gdy tablet jest z nim
+        połączony: callback(convert(stany), None). Brak odpowiedzi centrum - ha_path()
+        (zapytanie do HA jak dotąd). False - centrum niepołączone, wołający pyta HA."""
+        center = self.center
+        if center is None or not center.connected:
+            return False
+
+        def done(reply):
+            if reply is None or "states" not in reply:
+                Logger.warning("Centrum: brak danych ekranu - pytam HA")
+                ha_path()
+                return
+            callback(convert(reply["states"]), None)
+        return center.request({"type": "get", "entities": list(entity_ids)}, None, done, timeout=15)
 
     def fetch_states(self, entity_ids: list, callback):
-        """Stany wielu encji w osobnym wątku; callback({eid: {"value", "unit"}}, error).
+        """Stany wielu encji; callback({eid: {"value", "unit"}}, error) w wątku UI.
 
-        Najpierw jedno zbiorcze zapytanie przez API szablonów; gdy niedostępne -
-        pojedyncze zapytania o każdą encję.
+        Kiosk Center (gdy połączony) - jeden komunikat; inaczej jedno zbiorcze zapytanie
+        przez API szablonów HA, a gdy niedostępne - pojedyncze zapytania o każdą encję.
         """
+        def from_center(states):
+            return {eid: {"value": to_float(states.get(eid, {}).get("state")),
+                          "unit": states.get(eid, {}).get("attributes", {})
+                          .get("unit_of_measurement") or ""}
+                    for eid in entity_ids}
+
         def work():
             client = HAClient(self.settings["url"], self.settings["token"])
             if HAProvider._template_ok:
@@ -290,7 +313,11 @@ class HAProvider:
             error = "brak odpowiedzi HA" if errors and not values else None
             Clock.schedule_once(lambda _dt: callback(values, error))
 
-        threading.Thread(target=work, name="ha-states", daemon=True).start()
+        def ha_path():
+            threading.Thread(target=work, name="ha-states", daemon=True).start()
+
+        if not self._via_center(entity_ids, from_center, callback, ha_path):
+            ha_path()
 
     # --- encje z atrybutami, baterie, usługi (ekrany Ogrzewanie / Baterie) -----------
     def _in_thread(self, name, func, callback):
@@ -306,7 +333,14 @@ class HAProvider:
         threading.Thread(target=work, name=f"ha-{name}", daemon=True).start()
 
     def fetch_entities(self, entity_ids: list, attrs: list, callback):
-        """callback({eid: {"state", "attributes"}}, error) - jedno zapytanie (z fallbackiem)."""
+        """callback({eid: {"state", "attributes"}}, error) - jeden komunikat do centrum albo
+        jedno zapytanie do HA (z zapasowymi pojedynczymi zapytaniami)."""
+        def from_center(states):
+            return {eid: {"state": states.get(eid, {}).get("state", "unknown"),
+                          "attributes": {k: states.get(eid, {}).get("attributes", {}).get(k)
+                                         for k in attrs}}
+                    for eid in entity_ids}
+
         def func(client):
             if HAProvider._template_ok:
                 try:
@@ -321,7 +355,12 @@ class HAProvider:
                 out[eid] = {"state": st["state"],
                             "attributes": {k: st.get("attributes", {}).get(k) for k in attrs}}
             return out
-        self._in_thread("encje", func, callback)
+
+        def ha_path():
+            self._in_thread("encje", func, callback)
+
+        if not self._via_center(entity_ids, from_center, callback, ha_path):
+            ha_path()
 
     def fetch_batteries(self, callback):
         """callback([{"entity_id", "name", "value", "unit"}], error)"""

@@ -212,6 +212,7 @@ class KioskApp(App):
         self.voice = voice.VoiceLink(settings, settings.get("tablet_name", "Hol"),
                                      voice.cache_dir(), self._on_voice_message)
         self.voice.start()
+        provider.center = self.voice.center     # dane ekranów z Kiosk Center, gdy połączony
 
     @property
     def rooms(self):
