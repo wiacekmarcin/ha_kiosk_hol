@@ -224,9 +224,12 @@ class Player:
             Logger.warning(f"Głos: wzmacniacz niedostępny: {e}")
             self._enhancer = False
 
-# --- wysyłanie i odbiór przez HA -----------------------------------------------------
+# --- wysyłanie i odbiór: Kiosk Center (gdy działa), w przeciwnym razie przez HA ----------
 class VoiceLink:
-    def __init__(self, settings: dict, name: str, cache_dir: str, on_message=None):
+    """Wiadomości głosowe i komunikaty. Gdy tablet jest połączony z Kiosk Center
+    (kiosk/center.py), nagrania i komunikaty idą przez centrum (bez HA, mowa i format
+    dźwięku przygotowane w centrum); bez centrum - jak dotąd przez encje HA."""
+    def __init__(self, settings: dict, name: str, cache_dir: str, on_message=None, app="kiosk"):
         """on_message(info, path) - w wątku UI po pobraniu nowej wiadomości."""
         self.base = settings["url"].rstrip("/")
         self.headers = {"Authorization": f"Bearer {settings['token']}"}
@@ -242,15 +245,25 @@ class VoiceLink:
         self._first = True
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self._run, name="ha-voice", daemon=True)
+        from kiosk.center import CenterLink
+        self.center = CenterLink(name, app, settings)
+        self.center.on("voice", self._center_voice)
+        self.center.on("text", self._center_text)
 
     def start(self):
         self._thread.start()
+        self.center.start()
 
     def stop(self):
         self._stop.set()
+        self.center.stop()
 
     # wysyłanie (wątek w tle, callback w wątku UI)
     def send(self, path: str, seconds: float, callback):
+        if self.center.connected:
+            self._send_center(path, seconds, callback)
+            return
+
         def work():
             try:
                 with open(path, "rb") as f:
@@ -276,14 +289,67 @@ class VoiceLink:
                 Clock.schedule_once(lambda _dt, err=str(e): callback(False, err))
         threading.Thread(target=work, name="ha-voice-send", daemon=True).start()
 
-    # odbiór
+    def _send_center(self, path: str, seconds: float, callback):
+        """Nagranie (AAC w MP4) do centrum - centrum rozsyła je w formacie każdego tabletu."""
+        try:
+            data = Path(path).read_bytes()
+        except OSError as e:
+            callback(False, str(e))
+            return
+
+        def done(reply):
+            if reply is None:
+                callback(False, "Centrum nie odpowiedziało")
+            elif reply.get("sent"):
+                Logger.info(f"Głos: wysłano {seconds:.1f} s przez centrum do {reply['sent']}")
+                callback(True, "")
+            else:
+                why = "; ".join(f"{n}: {r}" for n, r in reply.get("skipped", []))
+                callback(False, "Nikt nie odebrał" + (f" ({why})" if why else ""))
+        if not self.center.request({"type": "voice", "mime": "audio/mp4",
+                                    "duration": round(seconds, 1)}, data, done, timeout=90):
+            callback(False, "Brak połączenia z centrum")
+
+    # odbiór z centrum (wątek UI)
+    def _center_voice(self, header: dict, data):
+        if not data:
+            return
+        path = self.cache / ("odebrana." + header.get("format", "m4a"))
+        path.write_bytes(data)
+        info = {"from": header.get("from", "?"), "duration": header.get("duration"),
+                "time": datetime.now().strftime("%H:%M")}
+        Logger.info(f"Głos: wiadomość od {info['from']} ({info['duration']} s) przez centrum")
+        self._deliver(info, path)
+
+    def _center_text(self, header: dict, data):
+        text = str(header.get("text", "")).strip()
+        info = {"from": header.get("from", "Home Assistant"), "text": text, "duration": None,
+                "time": datetime.now().strftime("%H:%M")}
+        Logger.info(f"Głos: komunikat przez centrum: {text[:60]}")
+        if data:
+            path = self.cache / ("komunikat." + header.get("format", "mp3"))
+            path.write_bytes(data)
+            self._deliver(info, path)
+        elif text:                      # centrum bez mowy - mowa z HA, jak dotąd
+            def work():
+                try:
+                    self._deliver(info, self._tts(text))
+                except Exception as e:  # noqa: BLE001
+                    Logger.warning(f"Głos: mowa komunikatu: {e}")
+            threading.Thread(target=work, name="ha-tts", daemon=True).start()
+
+    # odbiór przez HA
     def _run(self):
         while not self._stop.is_set():
-            for poll in (self._poll_voice, self._poll_text):
-                try:
-                    poll()
-                except Exception as e:  # noqa: BLE001
-                    Logger.debug(f"Głos: odczyt ({poll.__name__}): {e}")
+            if self.center.connected:
+                # wiadomości idą przez centrum; po rozłączeniu - tylko nowsze niż ten moment
+                self._first = self._text_first = True
+            else:
+                for poll in (self._poll_voice, self._poll_text):
+                    try:
+                        poll()
+                    except Exception as e:  # noqa: BLE001
+                        Logger.debug(f"Głos: odczyt ({poll.__name__}): {e}")
             self._stop.wait(POLL_SECONDS)
 
     def _deliver(self, info: dict, path: Path):
@@ -348,6 +414,14 @@ class VoiceLink:
                 return
         except (TypeError, ValueError):
             pass
+        path = self._tts(text)
+        info = {"from": "Home Assistant", "text": text, "duration": None,
+                "time": datetime.now().strftime("%H:%M")}
+        Logger.info(f"Głos: komunikat z HA: {text[:60]}")
+        self._deliver(info, path)
+
+    def _tts(self, text: str) -> Path:
+        """Mowa z silnika TTS w HA -> plik komunikat.mp3 (wątek w tle)."""
         r = requests.post(f"{self.base}/api/tts_get_url", headers=self.headers, timeout=30,
                           json={"engine_id": TTS_ENGINE, "message": text, "language": TTS_LANGUAGE})
         r.raise_for_status()
@@ -358,7 +432,4 @@ class VoiceLink:
         audio.raise_for_status()
         path = self.cache / "komunikat.mp3"
         path.write_bytes(audio.content)
-        info = {"from": "Home Assistant", "text": text, "duration": None,
-                "time": datetime.now().strftime("%H:%M")}
-        Logger.info(f"Głos: komunikat z HA: {text[:60]}")
-        self._deliver(info, path)
+        return path
