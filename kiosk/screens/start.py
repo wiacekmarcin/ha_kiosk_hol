@@ -10,7 +10,7 @@ from kivy.properties import (BooleanProperty, DictProperty, ListProperty, Numeri
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.screenmanager import Screen
 
-from kiosk import calendars, moon, pl, sun_year
+from kiosk import calendars, moon, ntp, pl, sun_year
 from kiosk.ui import make
 from kiosk.weather_icons import is_night
 from kiosk.widgets.history_dialog import HistoryDialog, sensor_series
@@ -138,7 +138,7 @@ class StartScreen(Screen):
 
     # --- zegar ---------------------------------------------------------------
     def _tick(self, _dt):
-        now = datetime.now()
+        now = ntp.now()
         # sekundy mniejszą, przygaszoną czcionką
         self.time_text = (f"{now:%H:%M}[size=40sp][color=#949ba8]:{now:%S}[/color][/size]")
         self.weather_night = is_night(now, self.sunrise, self.sunset)

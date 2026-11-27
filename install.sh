@@ -71,6 +71,11 @@ if ! echo "$OUT" | grep -q Success; then
 fi
 echo "INSTALL_OK"
 timeout 20 "$ADB" -s "$DEV" shell pm grant "$PKG" android.permission.RECORD_AUDIO 2>/dev/null
+if ! timeout 20 "$ADB" -s "$DEV" shell pm grant "$PKG" android.permission.WRITE_SECURE_SETTINGS \
+  2>/dev/null; then
+  echo "UWAGA: nie przyznano WRITE_SECURE_SETTINGS; Android nie zsynchronizuje czasu systemowego." >&2
+fi
+timeout 20 "$ADB" -s "$DEV" shell pm grant "$PKG" cyanogenmod.permission.WRITE_SECURE_SETTINGS 2>/dev/null
 timeout 20 "$ADB" -s "$DEV" shell cmd package set-home-activity "$PKG/org.kivy.android.PythonActivity" \
   > /dev/null 2>&1
 PUSH=../ha_kiosk_dzieci/tools/push_music.sh

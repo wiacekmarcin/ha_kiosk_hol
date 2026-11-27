@@ -16,6 +16,8 @@ from pathlib import Path
 from kivy.clock import Clock
 from kivy.logger import Logger
 
+from kiosk import ntp
+
 SOUNDS = Path(__file__).resolve().parent.parent / "assets" / "sounds"
 WEEKDAY_START = 7
 WEEKEND_START = 9
@@ -38,7 +40,7 @@ class HourChime:
         Clock.schedule_interval(self._check, CHECK_SECONDS)
 
     def _check(self, _dt):
-        now = datetime.now()
+        now = ntp.now()
         if now.minute != 0 or not self.enabled or not is_announced(now):
             return
         key = (now.date(), now.hour)
@@ -50,7 +52,7 @@ class HourChime:
     def play(self, hour: int = None):
         """Dopisuje do kolejki komunikat danej godziny (domyślnie bieżącej - przycisk
         w Ustawieniach)."""
-        hour = datetime.now().hour if hour is None else hour
+        hour = ntp.now().hour if hour is None else hour
         hour = min(max(hour, WEEKDAY_START), END)       # próba poza godzinami: najbliższe nagranie
         path = SOUNDS / f"hour_{hour:02d}.ogg"
         if not path.exists():

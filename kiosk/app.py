@@ -13,7 +13,7 @@ from kivy.uix.screenmanager import FadeTransition, ScreenManager
 
 from datetime import date, timedelta
 
-from kiosk import config, device, icons, network
+from kiosk import config, device, icons, network, ntp
 from kiosk.chime import HourChime
 from kiosk import voice
 from kiosk.widgets.voice_dialog import VoiceDialog
@@ -109,6 +109,7 @@ class KioskApp(App):
         self.kalbi = KalbiCache(Path(self.user_data_dir) / "kalbi") if self.is_android \
             else KalbiCache()
         if self.is_android:
+            ntp.start()
             self._android_setup()
         self.kalbi.prune()
         Clock.schedule_once(lambda _dt: self.prefetch_kartka(), 10)

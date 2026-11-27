@@ -143,6 +143,7 @@ class CenterLink:
         if header.get("type") != "welcome":
             raise ConnectionError(f"centrum odpowiedziało {header.get('type')}")
         self.tablet = header.get("tablet", {})
+        self._apply_center_config(header)
         self.connected = True
         Logger.info(f"Centrum: połączono z {host}:{port} jako {self.tablet.get('name')}")
         self._dispatch(header, None)
@@ -154,7 +155,15 @@ class CenterLink:
                 raise ConnectionError("centrum nie odpowiada") from None
             if header.get("type") in ("welcome", "config"):
                 self.tablet = header.get("tablet", self.tablet)
+                self._apply_center_config(header)
             self._dispatch(header, data)
+
+    @staticmethod
+    def _apply_center_config(header):
+        center = header.get("center")
+        if isinstance(center, dict) and "ntp_server" in center:
+            from kiosk import ntp
+            ntp.set_server(center["ntp_server"])
 
     @staticmethod
     def _read(f):
